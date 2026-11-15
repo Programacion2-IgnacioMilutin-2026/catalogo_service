@@ -9,4 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Documentacion relacionada con el servicio: contratos con otros servicios, casos de uso, modelo de dominio y diagramas de secuencia.
 
-
+## 2026-11-15
+### Added
+- Archivos de configuracion, dependencias, sonarqube y estrucutra inicial.
