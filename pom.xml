@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>25</java.version>
 		<sonar.organization>programacion2-ignaciomilutin-2026</sonar.organization>
+		<sonar.coverage.exclusions>**/CatalogoApplication.java</sonar.coverage.exclusions>
 		<jacoco.version>0.8.15</jacoco.version>
 	</properties>
 	<dependencies>
