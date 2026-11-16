@@ -128,16 +128,27 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Prueba en negativo: con el login corriendo dentro del arranque (sin hilo aparte), `TechnicalSessionCatedraDownIntegrationTest` falló con `expected: CONNECTING but was: DEGRADED`. Archivo restaurado y hash comprobado.
     - Regresión: `./mvnw -B clean verify`: `BUILD SUCCESS`, 135 tests (contados en los reportes XML), 0 fallos; solo se crearon contenedores de `postgres:18`. JaCoCo: líneas 225/229 (98,3 %), ramas 100/106 (94,3 %). Los cinco chequeos de la skill, sin resultados.
 
-- [ ] **TASK-07 · Prueba manual con la cátedra real**
+- [x] **TASK-07 · Prueba manual con la cátedra real**
   - Alcance: el usuario crea su `.env` a partir de `.env.example`, con la contraseña de la base y las tres variables de la cuenta técnica, sin pasarlas por el chat; levanta la base con el compose y la aplicación con `./mvnw spring-boot:run`, guardando la salida en un archivo temporal. Un único pedido a la cátedra: `POST /api/authenticate`. Sin cambios de código.
   - Depende de: TASK-06
   - Resuelve: CA-09
   - Validación: el log muestra el login técnico exitoso con el `groupId` y `PROVISIONED`; se busca en la salida que no aparezcan un JWT ni el nombre de ningún campo secreto con su valor. Después se borra el archivo temporal. Si la cátedra no está disponible, queda como no verificado.
-  - Resultado: pendiente
+  - Resultado: 2026-11-16, corrida por el usuario con su `.env` (del que solo se comprobó que las ocho variables tienen valor, sin leer los valores) y la base del compose (`catalog_service-catalog-db-1`, `healthy`, puerto 5433).
+    - Primer intento, descartado: el comando se corrió desde la carpeta de turnos y arrancó `TurnosServiceApplication`, que falló porque su base no estaba levantada. No hubo ningún pedido a la cátedra.
+    - Segundo intento, desde `catalog_service`: `Started CatalogoApplication in 2.632 seconds`, `Tomcat started on port 8081`, y 1,4 s después, en el hilo `technical-login`: `Technical login succeeded: groupId=<el de la cuenta>, provisioningStatus=PROVISIONED`. Un único login, al primer intento.
+    - Secretos en la salida (105 líneas): ningún texto con forma de JWT, ninguna línea con `password`, `id_token` ni `Bearer`, y ninguna impresión de la sesión o de la integración.
+    - Sin intentos de conexión a Redis ni a Kafka. El único warning fue el de Flyway por no tener migraciones.
+    - El archivo temporal con la salida se borró.
 
-- [ ] **TASK-08 · Cierre: regresión, chequeos y documentación**
+- [x] **TASK-08 · Cierre: regresión, chequeos y documentación**
   - Alcance: corrida completa y chequeos de la skill; crea el `CLAUDE.md` del repositorio (requisitos, comandos verificados, datos del proyecto, slices, excepciones a la skill autorizadas para X01 y cómo usar la sesión técnica) y `docs/decisiones/001-sesion-tecnica-con-la-catedra.md`. Sin cambios de código, salvo correcciones que surjan, que se anotan acá. El `README.md` lo escribe el usuario.
   - Depende de: TASK-01 a TASK-07
   - Resuelve: comprobación de todos los CA; `AGENTS.md`, "Código" (comandos documentados)
   - Validación: `./mvnw clean verify` en verde y con el reporte de JaCoCo; los cinco chequeos de la sección 12 de la skill sin resultados, salvo las excepciones autorizadas; cada comando del `CLAUDE.md` ejecutado y su resultado observado; `.env` fuera de git; revisión de que cada CA tiene su evidencia en este archivo.
-  - Resultado: pendiente
+  - Resultado: 2026-11-16. Creados `CLAUDE.md` y `docs/decisiones/001-sesion-tecnica-con-la-catedra.md`. Sin cambios de código.
+    - `./mvnw -B clean verify`: `BUILD SUCCESS`, 135 tests en 15 clases (contados en los reportes XML), 0 fallos, 0 salteados. JaCoCo: líneas 225/229 (98,3 %), ramas 100/106 (94,3 %), clases 21/21.
+    - Los cinco chequeos de la sección 12 de la skill: sin resultados. Las excepciones autorizadas (P1 del PLAN) están listadas en el `CLAUDE.md`; el usuario quitó sus comentarios del código.
+    - Comandos del `CLAUDE.md`: los ocho se ejecutaron. `docker compose up -d --wait catalog-db` y `./mvnw spring-boot:run` en TASK-01 y TASK-07; `./mvnw test`, `-Dtest`, `clean test` y `clean verify` en TASK-01 a TASK-06 y en esta; `docker compose down` en TASK-01 y por el usuario después de TASK-07; `docker compose ps` en esta tarea, sin contenedores en ejecución.
+    - `.env`: `git check-ignore` lo da por ignorado y `git ls-files` no lo lista.
+    - Evidencia por criterio: CA-01 en TASK-03 y TASK-06; CA-02 en TASK-04; CA-03 en TASK-03, TASK-04 y TASK-06; CA-04 en TASK-02, TASK-03 y TASK-04; CA-05 en TASK-06; CA-06 en TASK-05; CA-07 en TASK-02 a TASK-07; CA-08 en TASK-03 y TASK-06; CA-09 en TASK-07; CA-10 a CA-13 en TASK-05; CA-14 en TASK-04 y TASK-05; CA-15 en TASK-02 a TASK-05; CA-16 en la SPEC, D5.
+    - Fuera de alcance, avisado al usuario y sin corregir: el workflow de SonarQube envía una clave de proyecto que parece mal pegada (`…_catalogo_serviceilutin-2026_catalogo_service`), distinta de la del proyecto que el usuario creó. Está así desde el primer commit del workflow. La revisión de SonarQube del pull request queda a cargo del usuario.
