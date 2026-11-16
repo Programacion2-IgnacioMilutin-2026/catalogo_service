@@ -108,7 +108,7 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Regresión: `./mvnw -B clean test`: `BUILD SUCCESS`, 131 tests (contados en los reportes XML), 0 fallos. Los cinco chequeos de la skill, sin resultados.
     - Nota sobre RF-11: cuando la sesión rechazada es la vigente y todavía no pasó el intervalo mínimo, la respuesta es vacía ("no hay una sesión distinta para darte"), no la misma sesión rechazada. Es lo que hace turnos; se le informó al usuario.
 
-- [ ] **TASK-06 · Arranque e integración**
+- [x] **TASK-06 · Arranque e integración**
   - Alcance: crea `catedra/infrastructure/startup/TechnicalSessionStartup` (escucha `ApplicationReadyEvent` y corre el login inicial en un hilo virtual). Sin otros cambios de código.
   - Depende de: TASK-03, TASK-04, TASK-05
   - Resuelve: CA-01, CA-05, CA-07 y CA-08 (aplicación completa)
@@ -118,7 +118,15 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Sin configuración de la cátedra: arranca, warning con las propiedades, ningún request a la cátedra simulada.
     - La salida no contiene el JWT, la `password` ni la `redisPassword` de test.
     - Regresión: `./mvnw test` completo en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-16. Creado `TechnicalSessionStartup`. Los tests de integración son cuatro clases y no tres: el caso de la cátedra que responde `401` quedó en una clase propia, `TechnicalSessionRejectedIntegrationTest`, porque cada escenario necesita su propia aplicación arrancada.
+    - `./mvnw -B test -Dtest='TechnicalSession*IntegrationTest'`: 4 tests en verde, en tres corridas seguidas.
+    - `TechnicalSessionIntegrationTest`: al arrancar, la sesión queda habilitada con el JWT de test y la integración de la respuesta; la cátedra simulada recibe un solo request, con `test-login`, `test-password` y `rememberMe: true`; el log dice `Technical login succeeded: groupId=proyecto-de-prueba, provisioningStatus=PROVISIONED` y la salida no contiene el JWT, la `password` ni la `redisPassword` de test.
+    - `TechnicalSessionCatedraDownIntegrationTest` (nadie escucha en la dirección configurada; 3 intentos con esperas de 500 ms y 1 s): cuando el test empieza, la aplicación ya arrancó y la sesión sigue en `CONNECTING`; después queda `DEGRADED`, con los tres intentos en el log.
+    - `TechnicalSessionRejectedIntegrationTest` (la cátedra responde `401`): la aplicación arranca, la sesión queda `CONFIGURATION_ERROR` con un solo request, y un pedido de renovación no envía otro.
+    - `TechnicalSessionWithoutConfigurationIntegrationTest` (URL y usuario configurados, sin contraseña): arranca, warning `missing configuration properties [catalogo.catedra.password]`, `CONFIGURATION_ERROR` y ningún request a la cátedra simulada.
+    - Un fallo durante la tarea, corregido: la primera versión de `TechnicalSessionIntegrationTest` tenía tres métodos y uno falló, porque la salida se captura por método y el log del login había salido durante otro. Quedó en un solo método. Era un defecto del test, no del código.
+    - Prueba en negativo: con el login corriendo dentro del arranque (sin hilo aparte), `TechnicalSessionCatedraDownIntegrationTest` falló con `expected: CONNECTING but was: DEGRADED`. Archivo restaurado y hash comprobado.
+    - Regresión: `./mvnw -B clean verify`: `BUILD SUCCESS`, 135 tests (contados en los reportes XML), 0 fallos; solo se crearon contenedores de `postgres:18`. JaCoCo: líneas 225/229 (98,3 %), ramas 100/106 (94,3 %). Los cinco chequeos de la skill, sin resultados.
 
 - [ ] **TASK-07 · Prueba manual con la cátedra real**
   - Alcance: el usuario crea su `.env` a partir de `.env.example`, con la contraseña de la base y las tres variables de la cuenta técnica, sin pasarlas por el chat; levanta la base con el compose y la aplicación con `./mvnw spring-boot:run`, guardando la salida en un archivo temporal. Un único pedido a la cátedra: `POST /api/authenticate`. Sin cambios de código.
