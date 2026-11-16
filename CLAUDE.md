@@ -40,8 +40,7 @@ Todos se ejecutaron y su resultado se observó (TASKS de X01).
 - La aplicación escucha en el 8081 y la base se publica en el 5433 de la máquina; los dos puertos son configurables.
 - `compose.yaml` tiene por ahora solo la base (`catalog-db`, PostgreSQL 18). El `Dockerfile`, la aplicación en el compose y `compose.full-system.yaml` son de la etapa de Docker.
 - Dependencias incluidas desde el inicio, aunque algunas todavía no se usan: web, JPA, Flyway, PostgreSQL, validation, Lombok, security, OAuth2 resource server, Kafka, Redis y Testcontainers.
-- SonarQube Cloud: organización `programacion2-ignaciomilutin-2026`. Lo dispara `.github/workflows/build.yml` en cada pull request y en cada push a `main` y `develop`. `CatalogoApplication` está excluida del cálculo de cobertura. El usuario revisa SonarQube por su cuenta: no va en los TASKS.
-- **Pendiente de revisar por el usuario (detectado el 2026-11-16):** el proyecto que creó en SonarQube Cloud tiene la clave `Programacion2-IgnacioMilutin-2026_catalogo_service`, pero el workflow, desde su primer commit, envía `-Dsonar.projectKey=Programacion2-IgnacioMilutin-2026_catalogo_serviceilutin-2026_catalogo_service`, que parece un error de pegado. No se comprobó a qué proyecto están yendo los análisis.
+- SonarQube Cloud: organización `programacion2-ignaciomilutin-2026`, proyecto `Programacion2-IgnacioMilutin-2026_catalogo_service`. Lo dispara `.github/workflows/build.yml` en cada pull request y en cada push a `main` y `develop`. `CatalogoApplication` está excluida del cálculo de cobertura. El usuario revisa SonarQube por su cuenta: no va en los TASKS.
 - El repositorio remoto se llama `catalogo_service` y la carpeta local, `catalog_service`. El compose del sistema completo de turnos busca `../catalog_service`. El usuario decidió resolverlo en la etapa de Docker.
 
 ## Arquitectura
