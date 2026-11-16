@@ -28,7 +28,7 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - `git check-ignore` confirma que `.env` está ignorado por `.gitignore`.
     - Limpieza: aplicación detenida, `docker compose down` sin `-v` y `docker volume rm catalogo-x01-prueba-db-data`; no quedan contenedores, volúmenes ni puertos de la prueba.
 
-- [ ] **TASK-02 · Dominio del slice `catedra`**
+- [x] **TASK-02 · Dominio del slice `catedra`**
   - Alcance: crea en `catedra/domain/model/` los `record` `TechnicalIntegration`, `TechnicalSession` y `TechnicalLoginPolicy`, los enum `ProvisioningStatus` e `IntegrationState`, y la interfaz sellada `TechnicalLoginResult` con `Success`, `ConfigurationError` y `Unavailable`; en `catedra/domain/ports/`, los tres puertos de entrada (`Start`, `Get` y `Renew`, que recibe la sesión rechazada) y los dos de salida (`TechnicalLoginClient` y `TechnicalSessionRepository`). Sin implementaciones.
   - Depende de: ninguna
   - Resuelve: base de CA-02, CA-04, CA-07, CA-10, CA-11, CA-13 y CA-15
@@ -38,9 +38,15 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - La integración dice si está provista y nombra cada dato de Redis o de Kafka que le falta; sin `groupId` no le falta nada.
     - El `toString` de la sesión y del resultado no muestra el JWT, y el de la integración no muestra la `redisPassword`.
     - Chequeo 1 de la skill (el dominio no importa Spring, JPA ni otras capas).
-  - Resultado: pendiente
+  - Resultado: 2026-11-15. Creados los seis modelos y los cinco puertos. Además, el ayudante de test `catedra/TechnicalIntegrations` (integraciones de ejemplo, completas o sin un dato), que no estaba en el alcance y usan también los tests de las tareas siguientes.
+    - `./mvnw -B test -Dtest='TechnicalSessionTest,TechnicalLoginPolicyTest,TechnicalIntegrationTest'`: `BUILD SUCCESS`, 28 tests en verde.
+    - `TechnicalSessionTest` (8): con error de configuración o conectando nunca permite otro login, aunque pasen 30 días; degradada o habilitada, no a los 59 s y sí a los 60 s; solo `ENABLED` está habilitada; una sesión no habilitada no conserva JWT ni integración; el `toString` de la sesión y del login exitoso no muestra el JWT ni la `redisPassword`.
+    - `TechnicalLoginPolicyTest` (3): el primer intento no espera; esperas de 1, 2, 4 y 8 s; nunca más de 30 s.
+    - `TechnicalIntegrationTest` (17): completa, no le falta nada; nombra cada uno de los siete datos cuando falta, también si viene en blanco, y todos juntos si faltan todos; sin `groupId` no le falta nada; solo `PROVISIONED` está provista; el `toString` no muestra la `redisPassword`.
+    - Chequeo 1 de la skill: sin resultados.
+    - Prueba en negativo (junto con TASK-03): con el `toString` de la integración mostrando la `redisPassword`, fallaron `theRedisPasswordIsNotShownWhenTheIntegrationIsPrinted` y los dos tests del `toString` de `TechnicalSessionTest`. Archivo restaurado y hash comprobado.
 
-- [ ] **TASK-03 · Cliente HTTP de la cátedra**
+- [x] **TASK-03 · Cliente HTTP de la cátedra**
   - Alcance: crea en `catedra/infrastructure/client/` `CatedraLoginClientAdapter`, `CatedraProperties`, los DTO del login y de la integración (`dto/`) y `mapper/TechnicalIntegrationMapper`; suma la sección `catalogo.catedra` a `application.yaml` y las tres variables de la cuenta técnica a `.env.example`. Traduce `200` a `Success`, `4xx` a `ConfigurationError` y `5xx`, timeout, conexión rechazada o respuesta ilegible a `Unavailable`; con configuración faltante o URL inválida, warning con las propiedades y ningún request. Para los tests, crea `FakeHttpServer` (servidor HTTP del JDK, en `src/test/java/catalogo/`), `catedra/FakeCatedraServer` y la respuesta de ejemplo `src/test/resources/catedra/login-200.json`, armada desde el anexo §5.1 con valores ficticios.
   - Depende de: TASK-02
   - Resuelve: CA-01, CA-03, CA-04, CA-07, CA-08 y CA-15 (adaptador)
@@ -53,7 +59,13 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Sin cada una de las tres propiedades, y con URLs inválidas (entre comillas, sin protocolo, con otro protocolo): warning que nombra la propiedad y ningún request.
     - Con captura de la salida: no contiene el JWT, la `password` ni la `redisPassword` de test.
     - El mapper conserva cada dato (ida completa, con todos los campos cargados) y devuelve nulo con entrada nula.
-  - Resultado: pendiente
+  - Resultado: 2026-11-15. Creados el adaptador, `CatedraProperties`, los tres DTO y el mapper; sumadas la sección `catalogo.catedra` a `application.yaml` y las tres variables a `.env.example`. Dos diferencias con el alcance escrito: `CatalogoApplication` suma `@ConfigurationPropertiesScan`, necesaria para que Spring cargue `CatedraProperties`; y `CatedraProperties` todavía no tiene los tiempos de reintento del login, que entran en TASK-04 con quien los usa. El adaptador además quita una barra final de la URL base.
+    - `./mvnw -B test -Dtest='CatedraLoginClientAdapterTest,TechnicalIntegrationMapperTest,FakeHttpServerTest'`: `BUILD SUCCESS`, 52 tests en verde.
+    - `CatedraLoginClientAdapterTest` (37), contra la cátedra simulada (`FakeCatedraServer` sobre `FakeHttpServer`): `POST /api/authenticate` con `test-login`, `test-password` y `rememberMe: true`; la respuesta de ejemplo → `Success` con el JWT, el `groupId`, los cuatro datos de Redis y los tres de Kafka; campos desconocidos ignorados; `PENDING`, `FAILED`, `REVOKED` y un estado no previsto (→ `UNKNOWN`) siguen siendo `Success`; `401` sin cuerpo, `403` y `404` con `STUDENT_INTEGRATION_NOT_FOUND` → `ConfigurationError` con el estado y el código, un solo request; `500` y `503` → `Unavailable`; respuesta más lenta que el timeout de lectura, puerto cerrado, cuerpo ilegible y cuerpo vacío → `Unavailable`; `200` sin `id_token` o sin `integration` → `Unavailable` que lo nombra; `200` sin cada uno de los siete datos → `Success` cuya integración nombra el dato; sin `base-url`, `username` o `password` → warning que nombra la propiedad, `ConfigurationError` y ningún request; seis URLs inválidas (entre comillas dobles y simples, sin protocolo, con `ftp`, sin host, texto suelto) → warning y `ConfigurationError`; URL con barra final → llega a `/api/authenticate`; un error inesperado → `Unavailable`; la salida no contiene el JWT, la `password` ni la `redisPassword` de test.
+    - `TechnicalIntegrationMapperTest` (10): cada dato llega al dominio, con todos los campos cargados; nulo con entrada nula; un estado desconocido, en minúsculas o ausente queda `UNKNOWN`.
+    - `FakeHttpServerTest` (5): respuestas en orden y la última repetida; recuerda método, ruta, encabezados y cuerpo; `404` sin respuesta configurada; respuesta vacía sin cuerpo ni `Content-Type`; respeta la demora.
+    - Prueba en negativo, en una sola corrida con tres roturas: con `rememberMe(false)` falló `sendsTheConfiguredCredentialsWithRememberMe`; con el mapper sin pasar la `redisPassword` fallaron `everyValueOfTheResponseReachesTheDomain` y los tests de `Success` del adaptador; la tercera rotura es la de TASK-02. 17 fallos de 72. Los tres archivos se restauraron y su hash coincide con el anterior.
+    - Regresión: `./mvnw -B clean test`: `BUILD SUCCESS`, 81 tests (contados en los reportes XML), 0 fallos. `CatalogoApplicationTests` arranca con los beans nuevos y muestra el warning de configuración faltante, que es lo esperado sin datos de la cátedra. Los cinco chequeos de la skill, sin resultados.
 
 - [ ] **TASK-04 · Login inicial con reintentos**
   - Alcance: crea `catedra/application/usecases/StartTechnicalSessionUseCaseImpl`, `catedra/application/service/TechnicalSessionService` (con el método de arranque), `catedra/infrastructure/persistence/adapter/InMemoryTechnicalSessionRepositoryAdapter`, `catedra/infrastructure/client/CatedraClientConfiguration` (arma `TechnicalLoginPolicy` desde las propiedades) y `config/ClockConfig`. Para los tests, `ScriptedLoginClient` en `catedra/application/usecases/`.

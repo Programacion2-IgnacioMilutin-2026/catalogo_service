@@ -14,3 +14,9 @@ spring:
 
 server:
   port: ${CATALOGO_PORT:8081}
+
+catalogo:
+  catedra:
+    base-url: ${CATALOGO_CATEDRA_BASE_URL:}
+    username: ${CATALOGO_CATEDRA_USERNAME:}
+    password: ${CATALOGO_CATEDRA_PASSWORD:}

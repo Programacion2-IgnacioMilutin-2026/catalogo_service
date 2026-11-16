@@ -20,3 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuracion en TestContainers para la base de datos.
 ### Changed
 - 'application.yaml' y 'compose.yaml' para que utilice el puerto y la configuracion de la base de datos.
+
+## 2026-11-16
+### Added
+- En tests, servidor http para estos y servidor que simula a la catedra.
+- Archivos de domain(modelos y puertos) en slice 'Catedra' para la integracion de la cuenta tecnica.
+- Cliente http para la sesion tecnica en slice 'Catedra'.
+- Variables del servicio de catedra para iniciar sesion y comunciarse añadidos a '.env-example' y 'application.yaml'.
