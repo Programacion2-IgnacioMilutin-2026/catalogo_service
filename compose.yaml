@@ -1,0 +1,20 @@
+services:
+  catalog-db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${CATALOGO_DB_NAME:-catalogo}
+      POSTGRES_USER: ${CATALOGO_DB_USER:-catalogo}
+      POSTGRES_PASSWORD: ${CATALOGO_DB_PASSWORD:?Definí CATALOGO_DB_PASSWORD en el archivo .env}
+    ports:
+      - "${CATALOGO_DB_PORT:-5433}:5432"
+    volumes:
+      - catalog-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  catalog-db-data:
+    name: catalog_service_catalog-db-data

@@ -12,3 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 2026-11-15
 ### Added
 - Archivos de configuracion, dependencias, sonarqube y estrucutra inicial.
+
+## 2026-11-15
+### Added
+- Documentacion de SDD para el caso de uso X01-CuentaTecnica.
+- '.env-example' con puerto y configuracion de base de datos.
+- Configuracion en TestContainers para la base de datos.
+### Changed
+- 'application.yaml' y 'compose.yaml' para que utilice el puerto y la configuracion de la base de datos.
