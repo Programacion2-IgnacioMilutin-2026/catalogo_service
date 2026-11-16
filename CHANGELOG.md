@@ -27,3 +27,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Archivos de domain(modelos y puertos) en slice 'Catedra' para la integracion de la cuenta tecnica.
 - Cliente http para la sesion tecnica en slice 'Catedra'.
 - Variables del servicio de catedra para iniciar sesion y comunciarse añadidos a '.env-example' y 'application.yaml'.
+- Servicio e implementacion de los casos de uso del inicio de sesion de la cuenta tecnica en el slice 'Catedra'.
+- Reloj del servicio en nuevo slice 'Config'.

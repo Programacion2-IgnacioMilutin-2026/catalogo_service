@@ -1,9 +1,16 @@
 package catalogo.catedra.domain.model;
 
+import java.util.Objects;
+
 // Resultados posibles de un intento de login técnico.
 public sealed interface TechnicalLoginResult {
 
     record Success(String token, TechnicalIntegration integration) implements TechnicalLoginResult {
+
+        public Success {
+            Objects.requireNonNull(integration, "integration");
+        }
+
         @Override
         public String toString() {
             return "Success[token=***, integration=" + integration + "]";

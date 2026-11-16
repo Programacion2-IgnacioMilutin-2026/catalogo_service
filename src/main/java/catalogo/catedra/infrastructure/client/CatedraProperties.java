@@ -12,11 +12,20 @@ public record CatedraProperties(
         String username,
         String password,
         @DefaultValue("5s") Duration connectTimeout,
-        @DefaultValue("10s") Duration readTimeout) {
+        @DefaultValue("10s") Duration readTimeout,
+        @DefaultValue Login login) {
+
+    public record Login(
+            @DefaultValue("5") int maxAttempts,
+            @DefaultValue("1s") Duration initialDelay,
+            @DefaultValue("2") double multiplier,
+            @DefaultValue("30s") Duration maxDelay,
+            @DefaultValue("60s") Duration minInterval) {
+    }
 
     @Override
     public String toString() {
         return "CatedraProperties[baseUrl=" + baseUrl + ", username=" + username + ", password=***"
-                + ", connectTimeout=" + connectTimeout + ", readTimeout=" + readTimeout + "]";
+                + ", connectTimeout=" + connectTimeout + ", readTimeout=" + readTimeout + ", login=" + login + "]";
     }
 }
