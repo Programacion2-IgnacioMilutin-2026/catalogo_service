@@ -67,7 +67,7 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Prueba en negativo, en una sola corrida con tres roturas: con `rememberMe(false)` falló `sendsTheConfiguredCredentialsWithRememberMe`; con el mapper sin pasar la `redisPassword` fallaron `everyValueOfTheResponseReachesTheDomain` y los tests de `Success` del adaptador; la tercera rotura es la de TASK-02. 17 fallos de 72. Los tres archivos se restauraron y su hash coincide con el anterior.
     - Regresión: `./mvnw -B clean test`: `BUILD SUCCESS`, 81 tests (contados en los reportes XML), 0 fallos. `CatalogoApplicationTests` arranca con los beans nuevos y muestra el warning de configuración faltante, que es lo esperado sin datos de la cátedra. Los cinco chequeos de la skill, sin resultados.
 
-- [ ] **TASK-04 · Login inicial con reintentos**
+- [x] **TASK-04 · Login inicial con reintentos**
   - Alcance: crea `catedra/application/usecases/StartTechnicalSessionUseCaseImpl`, `catedra/application/service/TechnicalSessionService` (con el método de arranque), `catedra/infrastructure/persistence/adapter/InMemoryTechnicalSessionRepositoryAdapter`, `catedra/infrastructure/client/CatedraClientConfiguration` (arma `TechnicalLoginPolicy` desde las propiedades) y `config/ClockConfig`. Para los tests, `ScriptedLoginClient` en `catedra/application/usecases/`.
   - Depende de: TASK-02, TASK-03
   - Resuelve: CA-02, CA-03, CA-04, CA-14 y CA-15 (lógica)
@@ -79,9 +79,14 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - `Unavailable` dos veces y después `Success` → tres intentos y `ENABLED`.
     - Un cliente que lanza una excepción → intento fallido; el estado final nunca es `CONNECTING`.
     - Suite completa en verde (el contexto arranca con los beans nuevos). Chequeos 1 y 2 de la skill.
-  - Resultado: pendiente
+  - Resultado: 2026-11-16. Creados `StartTechnicalSessionUseCaseImpl`, `TechnicalSessionService`, `InMemoryTechnicalSessionRepositoryAdapter`, `CatedraClientConfiguration` y `config/ClockConfig`. Modificados: `CatedraProperties` suma la sección `login` con los valores por defecto de P4 (y su test del adaptador se ajustó al constructor nuevo); `TechnicalLoginResult.Success` exige que la integración no sea nula, para que una respuesta sin integración nunca llegue a un caso de uso (no estaba en el alcance; protege RF-13).
+    - `./mvnw -B test -Dtest='StartTechnicalSessionUseCaseImplTest,InMemoryTechnicalSessionRepositoryAdapterTest'`: `BUILD SUCCESS`, 24 tests en verde.
+    - `StartTechnicalSessionUseCaseImplTest` (22), con `ScriptedLoginClient`, esperas de 1 a 5 ms y un reloj fijo: `PROVISIONED` y completa → `ENABLED` con el JWT, la integración y el instante, guardada en el repositorio, un solo intento; `PENDING`, `FAILED`, `REVOKED` y `UNKNOWN` → 5 intentos y `DEGRADED`; `PROVISIONED` sin cada uno de los siete datos → 5 intentos, `DEGRADED` y el dato en el log; incompleta y después completa → `ENABLED` al segundo intento; sin `groupId` → `ENABLED`; `ConfigurationError` → un solo intento, `CONFIGURATION_ERROR` y el motivo en el log; `Unavailable` dos veces y después éxito → 3 intentos y `ENABLED`, con cada intento en el log; siempre `Unavailable` → 5 intentos y `DEGRADED`; una excepción del cliente cuenta como intento fallido, y si falla siempre el estado final es `DEGRADED`, no `CONNECTING`; durante el login la sesión está en `CONNECTING`; una espera interrumpida corta los reintentos y deja `DEGRADED`; el log del éxito muestra el `groupId` y `PROVISIONED`, sin el JWT ni la `redisPassword`.
+    - `InMemoryTechnicalSessionRepositoryAdapterTest` (2): arranca en `CONNECTING`; una sesión guardada reemplaza a la anterior.
+    - Prueba en negativo (junto con TASK-05): sin la regla de la respuesta incompleta fallaron los 7 casos de datos faltantes y el de "incompleta y después completa". Archivo restaurado y hash comprobado.
+    - Regresión y chequeos: ver TASK-05.
 
-- [ ] **TASK-05 · Consultar y renovar la sesión a pedido**
+- [x] **TASK-05 · Consultar y renovar la sesión a pedido**
   - Alcance: crea `GetTechnicalSessionUseCaseImpl` y `RenewTechnicalSessionUseCaseImpl` (candado, intervalo mínimo y sesión vigente) y suma sus métodos al service. Para los tests, `MutableClock` en `src/test/java/catalogo/`.
   - Depende de: TASK-04
   - Resuelve: CA-06, CA-10, CA-11, CA-12, CA-13, CA-14 y CA-15 (renovación)
@@ -95,7 +100,13 @@ CA-16 (convivencia de dos JWT de la misma cuenta) ya se comprobó contra la cát
     - Renovación con una respuesta `PROVISIONED` incompleta: la sesión queda degradada y el log nombra el dato.
     - Un cliente que lanza una excepción: la sesión queda degradada, no trabada.
     - Prueba en negativo de la concurrencia: sin el candado, el test de los 20 hilos falla; se restaura el archivo y se comprueba su hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-16. Creados `GetTechnicalSessionUseCaseImpl`, `RenewTechnicalSessionUseCaseImpl` y, para los tests, `MutableClock`; el service suma sus dos métodos.
+    - `./mvnw -B test -Dtest='GetTechnicalSessionUseCaseImplTest,RenewTechnicalSessionUseCaseImplTest'`: `BUILD SUCCESS`, 26 tests en verde.
+    - `GetTechnicalSessionUseCaseImplTest` (3): devuelve la sesión habilitada tal cual; lee la vigente en cada llamada; vacío en `CONNECTING`, `DEGRADED` y `CONFIGURATION_ERROR`.
+    - `RenewTechnicalSessionUseCaseImplTest` (23), con `MutableClock` y `ScriptedLoginClient`: degradada, ningún login a los 59 s y uno a los 60 s, que la deja `ENABLED`; con error de configuración, ningún login en 5 pedidos después de 2 días; en `CONNECTING`, ningún login; habilitada y sin sesión rechazada, devuelve la vigente sin login; la vigente rechazada se renueva pasado el intervalo; una sesión rechazada que ya no es la vigente recibe la vigente sin login; renovada hace 59 s y rechazada de nuevo, ningún login, respuesta vacía y la sesión queda como estaba; 20 pedidos simultáneos con la sesión rechazada, con el cliente demorado hasta que todos pidieron: un solo login y los 20 reciben la sesión nueva; renovación con `PENDING`, `FAILED`, `REVOKED` o `UNKNOWN` → `DEGRADED`; renovación `PROVISIONED` sin cada uno de los siete datos → `DEGRADED` y el dato en el log; renovación rechazada por la cátedra → `CONFIGURATION_ERROR` y ningún login más; cátedra no disponible → `DEGRADED`, ningún login a los 30 s y uno a los 60 s; una excepción del cliente → `DEGRADED`; el log de la renovación muestra el `groupId` y `PROVISIONED`, sin el JWT ni la `redisPassword`.
+    - Prueba en negativo, en una corrida con dos roturas: sin el candado, `manySimultaneousRenewalsProduceASingleLoginAndEveryoneGetsTheNewSession` falló con 20 logins en lugar de 1; sin la regla de la respuesta incompleta fallaron los 7 casos de la renovación (y los de TASK-04). 16 fallos de 45. Los dos archivos se restauraron y su hash coincide con el anterior.
+    - Regresión: `./mvnw -B clean test`: `BUILD SUCCESS`, 131 tests (contados en los reportes XML), 0 fallos. Los cinco chequeos de la skill, sin resultados.
+    - Nota sobre RF-11: cuando la sesión rechazada es la vigente y todavía no pasó el intervalo mínimo, la respuesta es vacía ("no hay una sesión distinta para darte"), no la misma sesión rechazada. Es lo que hace turnos; se le informó al usuario.
 
 - [ ] **TASK-06 · Arranque e integración**
   - Alcance: crea `catedra/infrastructure/startup/TechnicalSessionStartup` (escucha `ApplicationReadyEvent` y corre el login inicial en un hilo virtual). Sin otros cambios de código.
