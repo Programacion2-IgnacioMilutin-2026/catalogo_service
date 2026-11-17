@@ -31,6 +31,7 @@
 		<sonar.organization>programacion2-ignaciomilutin-2026</sonar.organization>
 		<sonar.coverage.exclusions>**/CatalogoApplication.java</sonar.coverage.exclusions>
 		<jacoco.version>0.8.15</jacoco.version>
+		<tests.env-file>${project.build.directory}/tests-do-not-read-the-local-env</tests.env-file>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -183,6 +184,15 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<catalogo.env-file>${tests.env-file}</catalogo.env-file>
+					</systemPropertyVariables>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>

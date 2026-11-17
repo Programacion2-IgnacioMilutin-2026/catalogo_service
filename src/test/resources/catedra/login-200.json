@@ -1,0 +1,18 @@
+{
+  "id_token": "test-technical-jwt",
+  "integration": {
+    "groupId": "proyecto-de-prueba",
+    "redisHost": "redis.catedra.internal",
+    "redisPort": 6379,
+    "redisUsername": "grp_proyecto-de-prueba",
+    "redisPassword": "test-redis-password",
+    "redisReadNamespace": "catedra:sync:*",
+    "redisWriteNamespace": "alumnos:proyecto-de-prueba:*",
+    "kafkaBootstrapServers": "kafka.catedra.internal:9092",
+    "kafkaConsumerGroupId": "alumnos-proyecto-de-prueba",
+    "kafkaCatalogTopic": "catedra.catalog.proyecto-de-prueba",
+    "kafkaAppointmentActionsTopic": "alumnos.turnos.acciones.proyecto-de-prueba",
+    "kafkaAppointmentPhoneTopic": "catedra.turnos.telefono.proyecto-de-prueba",
+    "provisioningStatus": "PROVISIONED"
+  }
+}
