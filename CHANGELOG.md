@@ -49,5 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ciente HTTP del snapshot en slice 'Catedra'. incluye DTOs, mappers, adaptadores, configuraciones y validaciones.
 - Tests del cliente HTTP para el snapshot en slice 'Catedra'.
 - Implementacion del caso de uso para obtener el snapshot de la catedra con sus tests en slice 'Catedra'.
+- Nuevo slice 'Syncronization'. Archivos del dominio, incluye modelo y puerto de entrada para la sincronizacion completa.
+- Archivos de aplicacion al slice 'Syncronization', incluye implementacion del caso de uso de la sincronizacion completa, el candado y el servicio.
+- Tests de la sincronizacion completa del catalogo.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
