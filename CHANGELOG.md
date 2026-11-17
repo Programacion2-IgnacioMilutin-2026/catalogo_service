@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Archivos de dominio del nuevo slice 'Catalog' (Tablas de la DB y el stado de sincronizacion).
 - Entidades de la persistencia en slice 'Catalog' y mappers del dominio a entidad y viceversa.
 - Repositorios JPA de las entidades del slice 'Catalog'.
-- Modelos de ejemplo para los tests y tests para los modelos del dominio(CatalogSyncState), y los mappers de la persistencia.
+- Modelos de ejemplo para los tests y tests para los modelos del dominio(CatalogSyncState), y los mappers de la persistencia del slice 'Catalog'.
+- Puertos de salida de los repositorios en slice 'Catalog'.
+- Adaptadores en la persistencia de slice 'Catalog'.
+- Tests de los adaptadores y limpiador de la base de datos de los test en slice 'Catalog'.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
