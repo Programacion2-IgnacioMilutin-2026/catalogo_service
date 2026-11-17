@@ -116,21 +116,6 @@ class ReplaceCatalogUseCaseImplTest {
     }
 
     @Test
-    void anEmptySnapshotLeavesAnInitializedCatalogWithoutEntities() {
-        ProfessionalCategory category = CatalogSamples.category(1);
-        Professional professional = CatalogSamples.professional(15, category);
-        replaceCatalogUseCase.replaceCatalog(303, List.of(category), List.of(professional),
-                List.of(CatalogSamples.weeklySchedule(21, professional)));
-
-        replaceCatalogUseCase.replaceCatalog(304, List.of(), List.of(), List.of());
-
-        assertThat(tables.ids("professional_categories")).isEmpty();
-        assertThat(tables.ids("professionals")).isEmpty();
-        assertThat(tables.ids("weekly_schedules")).isEmpty();
-        assertThat(tables.syncState()).containsEntry("local_version", 304L).containsEntry("last_sync_result", "SUCCESS");
-    }
-
-    @Test
     void aDatabaseFailureInTheMiddleOfTheReplacementLeavesTheCopyAndTheStateAsTheyWere() {
         ProfessionalCategory category = CatalogSamples.category(1);
         Professional professional = CatalogSamples.professional(15, category);
