@@ -17,7 +17,7 @@ Las instrucciones generales del proyecto están en `documentacion/AGENTS.md`. El
 
 ## Comandos
 
-Todos se ejecutaron y su resultado se observó (TASKS de X01).
+Todos se ejecutaron y su resultado se observó (TASKS de X01 y de C01).
 
 | Para | Comando |
 | --- | --- |
@@ -29,6 +29,7 @@ Todos se ejecutaron y su resultado se observó (TASKS de X01).
 | Compilar desde cero y correr los tests | `./mvnw clean test` |
 | Tests más reporte de cobertura de JaCoCo (`target/site/jacoco/jacoco.xml`), lo mismo que corre GitHub Actions | `./mvnw clean verify` |
 | Apagar los contenedores conservando los datos | `docker compose down` |
+| Solo los tests E2E, contra la cátedra real con las credenciales del `.env` (los corre el usuario, después de ver la lista de pedidos; sin credenciales se saltean) | `./mvnw test -Pe2e` |
 
 `docker compose down -v` borra el volumen de la base (`catalog_service_catalog-db-data`): no usarlo para limpiar una prueba. Para una prueba descartable, otro proyecto de compose con otro volumen y otro puerto, y después `down` sin `-v` y `docker volume rm` del volumen de prueba.
 
@@ -51,10 +52,12 @@ Slices actuales:
 
 | Paquete | Qué contiene |
 | --- | --- |
-| `catalogo.catedra` | Pasarela hacia la cátedra, la única puerta. Por ahora, solo la sesión técnica (X01): login técnico al arrancar, estado en memoria y renovación a pedido. Más adelante suma el snapshot, la lectura de Redis y el consumo de Kafka |
+| `catalogo.catedra` | Pasarela hacia la cátedra, la única puerta. La sesión técnica (X01): login técnico al arrancar, estado en memoria y renovación a pedido. El pedido del snapshot (C01): sesión, renovación ante un `401`, reintentos y validación de la respuesta (`GetCatalogSnapshotUseCase`). Más adelante suma la lectura de Redis y el consumo de Kafka |
+| `catalogo.catalog` | La copia local del catálogo: categorías, profesionales, horarios semanales y el estado de sincronización (`CatalogSyncState`, una sola fila). C01: reemplazar la copia con su versión en una transacción (`ReplaceCatalogUseCase`) y registrar un fracaso (`RecordSyncFailureUseCase`). Más adelante, las consultas de C04 a C06 |
+| `catalogo.synchronization` | El proceso de sincronización. C01: la sincronización completa (`SynchronizeFullCatalogUseCase`, `SynchronizationService`) y la regla de una sola sincronización a la vez (`SynchronizationLock`). Más adelante, C02, C03 y C07 |
 | `catalogo.config` | Configuración transversal, sin lógica de negocio. Por ahora, solo `ClockConfig` |
 
-Slices acordados como punto de partida para lo que sigue, sin crear todavía (se confirman en cada PLAN): uno por entidad del catálogo (categoría, profesional y horario semanal, como las tres colecciones de la cátedra) y `synchronization`. Los nombres de los paquetes están sin confirmar. No hay slice `turnos`: catálogo nunca llama a turnos; el endpoint que consume turnos (C06) pertenece al slice del profesional.
+Estructura decidida en C01 (decisión 002): la copia local va en un solo slice, `catalog`, porque las tres entidades se escriben siempre juntas por versión, se referencian entre sí y se leen juntas; el proceso va en `synchronization`. Dependencias en un solo sentido: `synchronization` usa `catedra` y `catalog`; `catalog` y `catedra` no usan a nadie. `synchronization` es una fachada (skill §9): su caso de uso recibe directamente los puertos de entrada de los otros dos y trabaja con sus modelos de dominio (P2 del PLAN de C01). No hay slice `turnos`: catálogo nunca llama a turnos; el endpoint que consume turnos (C06) va en `catalog`.
 
 ### Criterios de diseño acordados con el usuario
 
@@ -73,6 +76,17 @@ Autorizadas para X01 (P1 de su PLAN). No llevan comentario en el código: el usu
 - Puerto de salida para una capacidad técnica, no un repositorio: `TechnicalLoginClient`.
 - `@Configuration` dentro de la infraestructura de un slice: `CatedraClientConfiguration`.
 
+Autorizadas para C01 (P9 de su PLAN), cada una analizada en su contexto:
+
+- Los `id` los asigna la cátedra: las entidades JPA de `catalog` no llevan `@GeneratedValue`.
+- `CatalogSyncState` sin `id` en el modelo; su entidad es una sola fila con `id` fijo en 1, que crea la migración.
+- `record` inmutables y resultados sellados: `CatalogSnapshot`, `SnapshotCategory`, `SnapshotProfessional`, `SnapshotWeeklySchedule`, `CatalogSnapshotResult`, `SnapshotFetchResult`, `CatalogSnapshotPolicy` y `FullSyncResult`. Los modelos de `catalog` siguen la skill (clases Lombok).
+- `infrastructure/client` en `catedra` también para el cliente del snapshot (`CatedraSnapshotClientAdapter`).
+- Puerto de salida para una capacidad técnica: `CatalogSnapshotClient`.
+- `application/support` en `synchronization` para `SynchronizationLock`.
+
+No son excepciones: la fachada de `synchronization` (opción de la skill §9), `@Transactional` en los casos de uso de `catalog` (la skill no lo prohíbe en `application`) y las tres entidades en `catalog` (opción "unir slices", decisión 002). Los repositorios de `catalog` suman métodos fuera del CRUD (`saveAll` actualiza o inserta por `id`; `deleteAllExcept` quita lo que no está en una lista).
+
 ### Comentarios y nombres en el código
 
 - El código, sus comentarios y los nombres de los tests no citan documentos: ni el contrato, ni el anexo de la cátedra, ni el enunciado, ni IDs de requisitos. Un test se nombra por el comportamiento que comprueba.
@@ -87,11 +101,20 @@ Autorizadas para X01 (P1 de su PLAN). No llevan comentario en el código: el usu
 - El control de los logins vive en `catedra` (decisión 001): uno a la vez, como máximo uno cada 60 segundos, y ninguno más hasta reiniciar si hubo un error de configuración. Los demás slices nunca llaman al login de la cátedra.
 - Usar `catedra` desde otro slice es una dependencia entre slices: se decide con el usuario en el PLAN (skill §9).
 - Las tareas que arrancan con el servicio encuentran la sesión en "conectando": el login inicial corre en un hilo aparte después de que el servicio quedó listo. Cómo espera la verificación del arranque a ese login se define en C03.
+- Una operación nueva con la cátedra va en `catedra`, como el snapshot: un cliente en `infrastructure/client` que hace **un solo intento** y devuelve un resultado sellado (`SnapshotFetchResult`), y un caso de uso que pide la sesión, renueva una vez ante un `401` (el pedido repetido no cuenta como reintento) y reintenta lo no disponible con su propia política (`GetCatalogSnapshotUseCaseImpl`). Los demás slices reciben el resultado ya resuelto, nunca el JWT.
+
+### Cómo pedir la sincronización completa (desde C02 y C03)
+
+- Por `SynchronizeFullCatalogUseCase` (o `SynchronizationService` desde la infraestructura). Devuelve `Applied(versión)`, `Failed(motivo)` (el motivo empieza con el tipo de error registrado) o `Discarded` (había otra sincronización en curso; no se hizo nada).
+- Hay una sola sincronización a la vez, de cualquier tipo: `SynchronizationLock`, en memoria, para una sola instancia. Deja volver a entrar a quien ya lo tiene: C02 y C03 toman el candado para toda su pasada y piden la completa desde adentro sin que se descarte. C01 solo usa `tryAcquire` (no espera); "esperar a tomarlo" se suma con C02.
+- El resultado queda en `CatalogSyncState`: un éxito actualiza todo (versión, último intento y último éxito); un fracaso solo el último intento. Si la base tampoco acepta el registro del fracaso, queda en el log.
+- Un snapshot sin categorías se rechaza como `INVALID_DATA` y la copia no se vacía (cambio de D4 de la SPEC de C01).
 
 ### Lo comprobado con la cátedra real
 
 - El login técnico de catálogo funciona con la cuenta del proyecto y responde `PROVISIONED` (2026-11-16).
 - Dos JWT técnicos de la misma cuenta conviven: un login nuevo no invalida el anterior. Turnos y catálogo hacen cada uno su login (2026-11-15).
+- El snapshot real (2026-11-16 y 2026-11-17): responde `200` en menos de un segundo, unos 14,5 KB; 8 categorías, 24 profesionales y 44 horarios (con algunos deshabilitados), sin datos faltantes, ids repetidos ni referencias rotas; horas `HH:mm:ss`; los instantes no tienen formato fijo (`generatedAt` con nanosegundos, algún `updatedAt` con microsegundos), por eso no se leen. Con el E2E, la sincronización completa de la versión 327 tardó 779 ms (2026-11-17).
 - El Redis de la cátedra todavía no se probó desde ningún servicio. Antes de usarlo hay que comprobar, con lecturas que corre el usuario, cómo se conecta y la forma real de los datos.
 - Las pruebas contra la cátedra real las corre el usuario en su terminal, después de ver la lista de pedidos; la salida se revisa sin mostrar secretos y los archivos temporales se borran.
 
@@ -100,10 +123,13 @@ Autorizadas para X01 (P1 de su PLAN). No llevan comentario en el código: el usu
 - La suite normal nunca lee el `.env` local: el `pom.xml` apunta `catalogo.env-file` a un archivo inexistente (propiedad `tests.env-file`).
 - `TestcontainersConfiguration`: solo PostgreSQL 18. Lo importan los tests que levantan la aplicación. Redis y Kafka quedan para los tests que los usen.
 - `FakeHttpServer` (`src/test/java/catalogo/`): servidor HTTP del JDK en un puerto libre, para simular sistemas externos. Respuestas en orden por ruta (la última se repite), demoras y registro de los pedidos.
-- `FakeCatedraServer` (`src/test/java/catalogo/catedra/`): cátedra simulada sobre `FakeHttpServer`. Por defecto responde un login técnico exitoso; arma también respuestas con otro estado, sin un dato o con un rechazo. La respuesta de ejemplo está en `src/test/resources/catedra/login-200.json`, con valores ficticios.
+- `FakeCatedraServer` (`src/test/java/catalogo/catedra/`): cátedra simulada sobre `FakeHttpServer`. Por defecto responde un login técnico exitoso y el snapshot de ejemplo; arma también respuestas con otro estado, sin un dato o con un rechazo, y copias del snapshot para modificar en un test (`snapshotTree`, `snapshotOf`). Las respuestas de ejemplo están en `src/test/resources/catedra/`: `login-200.json` y `snapshot-200.json` (recorte del snapshot real con datos ficticios y el mismo formato; el orden de los campos sigue el ejemplo del anexo, sin verificar contra el real), con valores ficticios.
+- `CatalogSnapshots` (`src/test/java/catalogo/catedra/`): el snapshot de ejemplo ya leído, igual a `snapshot-200.json`. `ScriptedSnapshotClient` (junto a los tests de los casos de uso de `catedra`): cliente del snapshot falso que responde en orden y guarda los JWT recibidos.
+- `CatalogSamples` y `CatalogTables` (`src/test/java/catalogo/catalog/`): modelos de la copia local con todos los datos completos, y lectura y limpieza de las tablas con SQL directo, para comprobar lo que llegó a la base sin pasar por JPA. Los tests de `catalog` no usan `@Transactional`: prueban transacciones reales. Para provocar una falla de la base a mitad de una escritura, el test crea un disparador de PostgreSQL y lo borra al terminar (`ReplaceCatalogUseCaseImplTest`).
 - `TechnicalIntegrations` (`src/test/java/catalogo/catedra/`): integraciones de ejemplo, completas o sin un dato.
 - `ScriptedLoginClient` (junto a los tests de los casos de uso de `catedra`): cliente de login falso que responde en orden y cuenta las llamadas. `MutableClock` (`src/test/java/catalogo/`): reloj que el test adelanta.
-- Integración con la aplicación completa: clases `*IntegrationTest` con `@SpringBootTest` e `@Import(TestcontainersConfiguration.class)`, con la cátedra simulada configurada por `@DynamicPropertySource`. Un escenario por clase, porque cada uno necesita su propia aplicación arrancada.
+- Integración con la aplicación completa: clases `*IntegrationTest` con `@SpringBootTest` e `@Import(TestcontainersConfiguration.class)`, con la cátedra simulada configurada por `@DynamicPropertySource`. Un escenario por clase cuando cada uno necesita su propia configuración de la aplicación; varios en una clase si comparten la configuración y cada uno revisa su propio log (`FullSynchronizationIntegrationTest`).
+- E2E: paquete `e2e` (`src/test/java/e2e/`), clases con `@Tag("e2e")` y `@EnabledIf("e2e.E2ECredentials#available")`: corren solo con `-Pe2e` y se saltean sin las tres credenciales de la cátedra en el `.env`. Usan una base descartable de Testcontainers y la cátedra real, y comprueban solo lo que hace este servicio. Para probar el perfil sin llamar a la cátedra: `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>` (la propiedad de la línea de comandos le gana a la del perfil; comprobado con `help:evaluate`).
 - La salida se captura por método (`OutputCaptureExtension`): un log que salió durante otro método de la misma clase no se ve. Si un test mira el log de algo que ocurre una sola vez, como el login del arranque, la clase tiene un solo método.
 - Para contar los tests de una corrida, usar los reportes XML (`target/surefire-reports/TEST-*.xml`).
 - Práctica acordada: después de que un test pasa, una prueba en negativo (romper el código a propósito, ver que el test falla, restaurar el archivo y comprobar el hash).
@@ -112,6 +138,6 @@ Autorizadas para X01 (P1 de su PLAN). No llevan comentario en el código: el usu
 ## Documentación del servicio
 
 - `docs/`: copias de los casos de uso, los contratos, el dominio y las secuencias. La fuente de verdad está en el repositorio `documentacion`. `contratos_comunes.md` y el caso de uso X01 tienen que ser idénticos en los tres repositorios: compararlos al empezar cada SPEC.
-- `docs/sdd/<id>-<nombre-corto>/`: SPEC, PLAN y TASKS de cada funcionalidad. Hecha: `x01-cuenta-tecnica`.
-- `docs/decisiones/NNN-titulo.md`: textos de las decisiones complejas. `001`: sesión técnica con la cátedra.
+- `docs/sdd/<id>-<nombre-corto>/`: SPEC, PLAN y TASKS de cada funcionalidad. Hechas: `x01-cuenta-tecnica` y `c01-sincronizacion-completa`.
+- `docs/decisiones/NNN-titulo.md`: textos de las decisiones complejas. `001`: sesión técnica con la cátedra. `002`: la copia local del catálogo en un solo slice.
 - El `README.md` lo escribe el usuario.
