@@ -52,5 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nuevo slice 'Syncronization'. Archivos del dominio, incluye modelo y puerto de entrada para la sincronizacion completa.
 - Archivos de aplicacion al slice 'Syncronization', incluye implementacion del caso de uso de la sincronizacion completa, el candado y el servicio.
 - Tests de la sincronizacion completa del catalogo.
+- Test E2E que testea la sincronizacion completa.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
+- El pom.xml se actualizo para que el test E2e.
