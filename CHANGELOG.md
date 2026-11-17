@@ -46,5 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implementacion de los casos de uso en slice 'Catalog'.
 - Modelo del snapshot en slice 'Catedra', con sus puertos de salida y de entrada.
 - Test de los modelos del snapshot del slice 'Catedra' y un ejemplos del snapshot para utilizar en los tests.
+- Ciente HTTP del snapshot en slice 'Catedra'. incluye DTOs, mappers, adaptadores y configuraciones.
+- Tests del cliente HTTP para el snapshot en slice 'Catedra'.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
