@@ -1,5 +1,6 @@
 package catalogo.catedra.infrastructure.client;
 
+import catalogo.catedra.domain.model.CatalogSnapshotPolicy;
 import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,5 +14,12 @@ public class CatedraClientConfiguration {
         CatedraProperties.Login login = catedraProperties.login();
         return new TechnicalLoginPolicy(login.maxAttempts(), login.initialDelay(), login.multiplier(),
                 login.maxDelay(), login.minInterval());
+    }
+
+    @Bean
+    CatalogSnapshotPolicy catalogSnapshotPolicy(CatedraProperties catedraProperties) {
+        CatedraProperties.Snapshot snapshot = catedraProperties.snapshot();
+        return new CatalogSnapshotPolicy(snapshot.maxAttempts(), snapshot.initialDelay(), snapshot.multiplier(),
+                snapshot.maxDelay());
     }
 }
