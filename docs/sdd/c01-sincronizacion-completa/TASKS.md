@@ -6,26 +6,34 @@ Las tareas siguen el "Orden de implementación" del PLAN. Toda tarea con tests i
 
 ## Etapa 1 · La copia local (`catalog`)
 
-- [ ] **TASK-01 · Migración, modelos y entidades de la copia local**
+- [x] **TASK-01 · Migración, modelos y entidades de la copia local**
   - Alcance: `src/main/resources/db/migration/V1__create_catalog.sql` (cuatro tablas y la fila vacía del estado, PLAN "Datos y contratos"); en `catalog/domain/model`, `ProfessionalCategory`, `Professional`, `WeeklySchedule`, `CatalogSyncState`, `SyncType`, `SyncResult` y `SyncErrorType`; en `catalog/infrastructure/persistence`, las cuatro entidades (`id` de la cátedra, `@ManyToOne`, P6 y P9), sus repositorios de Spring Data y sus mappers. Sin puertos ni casos de uso.
   - Depende de: ninguna
   - Resuelve: base de RF-03, RF-04 y RF-11 (la usan CA-01, CA-02 y CA-15)
   - Validación: `./mvnw test`: la aplicación arranca con Flyway aplicando `V1` y Hibernate validando las cuatro entidades (`CatalogoApplicationTests`); tests de ida y vuelta de los cuatro mappers con todos los datos completos (skill §10); los 135 tests de X01 siguen en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-17. Creados `V1__create_catalog.sql`, los siete tipos de `catalog/domain/model`, las cuatro entidades, los cuatro repositorios de Spring Data y los cuatro mappers. Diferencias con el alcance escrito: `CatalogSyncState` suma sus reglas (`isInitialized`, `recordSuccess` y `recordFailure`: un éxito actualiza todo y un fracaso solo el último intento), porque son del modelo; los repositorios de Spring Data ya traen `deleteByIdNotIn`, que usa TASK-02; el `id` del estado es `INTEGER`. Ayudante de test nuevo: `catalog/CatalogSamples` (modelos completos de ejemplo).
+    - `./mvnw test -Dtest='CatalogoApplicationTests,CatalogPersistenceMappersTest,CatalogSyncStateTest'`: 10 tests, 0 fallos (reportes XML). El log muestra `Migrating schema "public" to version "1 - create catalog"` y `Successfully applied 1 migration`, y el contexto arranca con `ddl-auto: validate`. El `ERROR` de configuración del login técnico es el esperado: la suite no configura la cátedra.
+    - Pruebas en negativo: sin la línea de `description` en `ProfessionalCategoryMapper.toDomainModel`, fallan los tres tests de ida y vuelta que la incluyen; con `recordFailure` borrando `lastSuccessfulSyncAt`, fallan `aFailureOnlyChangesTheLastAttempt` y el test de `RecordSyncFailureUseCaseImplTest` de TASK-03. Archivos restaurados con el mismo hash (`9ad7399f91b99ea6` y `8f18b30e2d6273b7`).
+    - Regresión: ver TASK-03.
 
-- [ ] **TASK-02 · Repositorios de `catalog`**
+- [x] **TASK-02 · Repositorios de `catalog`**
   - Alcance: puertos de salida `ProfessionalCategoryRepository`, `ProfessionalRepository`, `WeeklyScheduleRepository` y `CatalogSyncStateRepository` (P4), y sus adaptadores JPA: guardar actualizando o insertando por `id`, quitar los `id` que no están en una lista (P5), y leer y guardar el estado único.
   - Depende de: TASK-01
   - Resuelve: CA-02 (parte de base)
   - Validación: tests de los adaptadores contra el PostgreSQL de Testcontainers: guardar una entidad nueva y una existente, quitar las que no están en la lista, y leer y guardar el estado.
-  - Resultado: pendiente
+  - Resultado: 2026-11-17. Creados los cuatro puertos (`saveAll`, `deleteAllExcept`, y `get` y `save` del estado) y los cuatro adaptadores `Jpa…RepositoryAdapter`. Dos decisiones de implementación: con una lista vacía, `deleteAllExcept` borra todo con `deleteAll` en lugar de mandar un `NOT IN` vacío; y `deleteAllExcept` lleva `@Transactional` en el adaptador, porque un borrado derivado de Spring Data necesita una transacción de escritura cuando se lo llama solo (dentro del reemplazo se une a la del caso de uso). Si falta la fila del estado, `get` lanza `IllegalStateException`. Ayudante de test nuevo: `catalog/CatalogTables` (lee y limpia las tablas con SQL directo).
+    - `./mvnw test -Dtest='CatalogRepositoryAdaptersTest'`: 6 tests, 0 fallos, contra PostgreSQL 18 de Testcontainers: insertar y actualizar por `id` (nombre, `description` en `null`, deshabilitada); un profesional que cambia de categoría; un horario con su día y sus horas locales; quitar los que no están en la lista; quitar todo con la lista vacía; el estado empieza vacío, guarda lo que se le da y sigue siendo una sola fila.
+    - Prueba en negativo: cubierta por la segunda de TASK-03 (orden de los borrados), que pasa por estos adaptadores.
 
-- [ ] **TASK-03 · Reemplazar la copia y registrar un fracaso**
+- [x] **TASK-03 · Reemplazar la copia y registrar un fracaso**
   - Alcance: puertos de entrada `ReplaceCatalogUseCase` y `RecordSyncFailureUseCase`, y sus implementaciones. `ReplaceCatalogUseCaseImpl` con `@Transactional`: guarda en orden categorías, profesionales y horarios, quita lo que falta, y registra versión, `FULL`, `SUCCESS` y los dos instantes (RF-03, RF-04). `RecordSyncFailureUseCaseImpl` en su propia transacción: último intento con `FULL`, `ERROR` y el tipo, sin tocar la versión ni el último éxito (RF-14). Sin `CatalogService` ni `CatalogException` (P4).
   - Depende de: TASK-02
   - Resuelve: CA-01 y CA-02 (parte de base), CA-07 (parte de base), CA-15 (parte de base)
   - Validación: tests contra la base real: reemplazo con la base vacía; reemplazo con una entidad modificada, una nueva, una deshabilitada, una que falta de cada colección y un profesional que cambia de categoría; un fracaso después de un éxito; un disparador de PostgreSQL creado por el test que hace fallar un `INSERT` a mitad del reemplazo, y la base sin cambios después.
-  - Resultado: pendiente
+  - Resultado: 2026-11-17. Creados `ReplaceCatalogUseCase`, `RecordSyncFailureUseCase` y sus implementaciones, sin `CatalogService` ni `CatalogException`.
+    - `./mvnw test -Dtest='ReplaceCatalogUseCaseImplTest,RecordSyncFailureUseCaseImplTest'`: 6 tests, 0 fallos, contra PostgreSQL real. Reemplazo con la base vacía (con entidades deshabilitadas; versión 303, `FULL`, `SUCCESS`, sin tipo de error, el mismo instante como último intento y último éxito); reemplazo de una copia existente (categoría renombrada, una nueva y una que falta; un profesional movido a la categoría nueva y deshabilitado, uno igual, uno nuevo y uno que falta; un horario con otras horas y otra duración, uno nuevo y uno que falta): la base queda exactamente como el snapshot nuevo, versión 304; un snapshot vacío deja el catálogo inicializado y sin entidades; con un disparador de PostgreSQL que hace fallar el `INSERT` del horario 999, el reemplazo lanza la excepción y las cuatro tablas quedan idénticas a antes; un fracaso después de un éxito cambia solo el último intento (versión, último éxito y copia intactos); un fracaso sin éxito previo deja el catálogo sin inicializar.
+    - Pruebas en negativo: sin `@Transactional` en `replaceCatalog`, falla el test del disparador (la base quedó a medias); con los borrados en orden inverso (categorías primero), dos tests fallan con `DataIntegrityViolationException` por la clave foránea. Archivo restaurado con el mismo hash (`8fd2ebbd1ee515d8`) después de cada prueba.
+    - Regresión de la tanda: `./mvnw clean test`, 156 tests en 20 clases (los 135 de X01 más los 21 nuevos), 0 fallos, 0 errores, 0 salteados, contados en los reportes XML. Los cinco chequeos de la sección 12 de la skill, sin resultados.
 
 ## Etapa 2 · El snapshot en `catedra`
 

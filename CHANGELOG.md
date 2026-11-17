@@ -42,5 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Puertos de salida de los repositorios en slice 'Catalog'.
 - Adaptadores en la persistencia de slice 'Catalog'.
 - Tests de los adaptadores y limpiador de la base de datos de los test en slice 'Catalog'.
+- Puertos de entrada de los casos ReplaceCatalogUseCase y RecordSyncFailureUseCase de uso de slice 'Catalog'.
+- Implementacion de los casos de uso en slice 'Catalog'.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
