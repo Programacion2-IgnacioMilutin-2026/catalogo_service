@@ -44,5 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests de los adaptadores y limpiador de la base de datos de los test en slice 'Catalog'.
 - Puertos de entrada de los casos ReplaceCatalogUseCase y RecordSyncFailureUseCase de uso de slice 'Catalog'.
 - Implementacion de los casos de uso en slice 'Catalog'.
+- Modelo del snapshot en slice 'Catedra', con sus puertos de salida y de entrada.
+- Test de los modelos del snapshot del slice 'Catedra' y un ejemplos del snapshot para utilizar en los tests.
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
