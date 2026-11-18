@@ -11,4 +11,6 @@ public interface ProfessionalRepository {
     void saveAll(List<Professional> professionals);
 
     void deleteAllExcept(Collection<Long> ids);
+
+    List<Professional> findAllByIds(Collection<Long> ids);
 }

@@ -141,6 +141,22 @@ class CatalogRepositoryAdaptersTest {
     }
 
     @Test
+    void findingByIdsReturnsOnlyTheOnesThatExistWithEveryField() {
+        ProfessionalCategory first = CatalogSamples.category(1);
+        ProfessionalCategory second = CatalogSamples.category(2);
+        Professional professional = CatalogSamples.professional(15, second);
+        categoryRepository.saveAll(List.of(first, second));
+        professionalRepository.saveAll(List.of(professional));
+
+        List<ProfessionalCategory> categories = categoryRepository.findAllByIds(List.of(2L, 999L));
+        List<Professional> professionals = professionalRepository.findAllByIds(List.of(15L, 999L));
+
+        assertThat(categories).usingRecursiveFieldByFieldElementComparator().containsExactly(second);
+        assertThat(professionals).usingRecursiveFieldByFieldElementComparator().containsExactly(professional);
+        assertThat(categoryRepository.findAllByIds(List.of())).isEmpty();
+    }
+
+    @Test
     void theSyncStateStartsEmptyAndKeepsWhatIsSaved() {
         assertThat(syncStateRepository.get()).usingRecursiveComparison().isEqualTo(new CatalogSyncState());
 

@@ -11,4 +11,7 @@ public interface ProfessionalCategoryRepository {
     void saveAll(List<ProfessionalCategory> categories);
 
     void deleteAllExcept(Collection<Long> ids);
+
+    // Las que existen entre esos ids; los que no están, no vienen.
+    List<ProfessionalCategory> findAllByIds(Collection<Long> ids);
 }
