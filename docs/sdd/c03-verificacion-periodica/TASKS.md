@@ -24,19 +24,23 @@ Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suit
 
 ## Etapa 2 · El estado de sincronización
 
-- [ ] **TASK-03 · Un fracaso no cambia el tipo (D11)**
+- [x] **TASK-03 · Un fracaso no cambia el tipo (D11)**
   - Alcance: `CatalogSyncState.recordFailure` deja de asignar el tipo; `RecordSyncFailureUseCase` y su implementación pierden el parámetro del tipo; `SynchronizeFullCatalogUseCaseImpl` lo llama sin tipo (P8). Tests: `CatalogSyncStateTest`, `RecordSyncFailureUseCaseImplTest`, `SynchronizeFullCatalogUseCaseImplTest` y el escenario de CA-15 de C01 en `FullSynchronizationIntegrationTest`.
   - Depende de: ninguna
   - Resuelve: RF-13; CA-08 (parte de la sincronización completa); CA-15 de C01 con su nota
   - Validación: tests del modelo y del caso de uso: después de un éxito `FULL`, cada fracaso deja el tipo `FULL`; antes del primer éxito, el tipo queda vacío; la versión y el último éxito no cambian. Integración de C01 con un éxito y después un fracaso: el tipo sigue siendo el del éxito. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-18 (tanda 2, autorizada ese día). `CatalogSyncState.recordFailure(errorType, instante)` ya no recibe ni asigna el tipo; `RecordSyncFailureUseCase.recordSyncFailure(errorType)` perdió el parámetro, y `SynchronizeFullCatalogUseCaseImpl` lo llama así. Tests ajustados: `CatalogSyncStateTest` (llamadas sin tipo; nuevo `aFailureKeepsTheTypeOfTheLastSyncThatAppliedChanges`, con un éxito `INCREMENTAL` antes del fracaso; el fracaso antes del primer éxito comprueba además el tipo vacío), `RecordSyncFailureUseCaseImplTest` (llamadas sin tipo; antes del primer éxito, `last_sync_type` vacío en la tabla), el registro falso de `SynchronizeFullCatalogUseCaseImplTest` (ya no comprueba un tipo), y el escenario de CA-15 de C01 en `FullSynchronizationIntegrationTest`: después del éxito, el test marca con SQL `last_sync_type = 'INCREMENTAL'` (como si la última sincronización con cambios hubiera sido incremental), y después del fracaso de la completa la tabla sigue diciendo `INCREMENTAL`. Sin ese paso el escenario no distinguía la regla vieja de la nueva, porque hoy solo hay sincronizaciones `FULL`.
+    - `./mvnw -q test`: 278 tests en 28 clases (277 + 1), 0 fallos ni errores.
+    - Prueba en negativo: se volvió a poner `lastSyncType = SyncType.FULL` en `recordFailure`; fallaron 4 tests, uno por nivel (`CatalogSyncStateTest` ×2, `RecordSyncFailureUseCaseImplTest` ×1 y `FullSynchronizationIntegrationTest` ×1). Restaurado, `sha256sum` coincide.
 
-- [ ] **TASK-04 · Leer el estado y registrar la verificación al día**
+- [x] **TASK-04 · Leer el estado y registrar la verificación al día**
   - Alcance: `CatalogSyncState.recordUpToDateCheck(instante)`; puertos `GetCatalogSyncStateUseCase` y `RecordUpToDateCheckUseCase` con sus implementaciones (la que escribe, con `@Transactional`) (P8).
   - Depende de: TASK-03
   - Resuelve: RF-08 (catálogo al día); CA-01 (parte del estado); CA-08 (la verificación que corrige no toca el tipo)
   - Validación: unitarios del modelo: con el último resultado `SUCCESS` no cambia nada; con `ERROR` queda `SUCCESS`, el instante nuevo y el tipo de error vacío, sin tocar la versión, el último éxito ni el tipo. Integración de los dos casos de uso contra la base real (lo que llega a la tabla, leído con SQL directo).
-  - Resultado: pendiente
+  - Resultado: 2026-11-18. `CatalogSyncState.recordUpToDateCheck(instante)` devuelve si cambió algo: solo con el último resultado `ERROR` deja `SUCCESS`, el instante y el tipo de error vacío. Creados `GetCatalogSyncStateUseCase` e implementación (devuelve el estado guardado) y `RecordUpToDateCheckUseCase` e implementación (`@Transactional`; guarda solo si el modelo cambió, así una verificación al día normal no escribe). Tests nuevos: tres en `CatalogSyncStateTest` (después de un éxito no cambia; después de un fracaso registra el intento exitoso sin tocar versión, último éxito ni tipo; antes de toda sincronización no cambia), `RecordUpToDateCheckUseCaseImplTest` (2, base real: después de un éxito la fila queda idéntica; después de un fracaso, `SUCCESS` sin tocar `local_version`, `last_successful_sync_at` ni `last_sync_type`) y `GetCatalogSyncStateUseCaseImplTest` (2, base real: vacío sin inicializar; lo leído es lo guardado).
+    - `./mvnw -q test`: 285 tests en 30 clases (278 + 7), 0 fallos ni errores.
+    - Prueba en negativo: se quitó la condición "solo si el último resultado fue `ERROR`"; fallaron 3 tests (`CatalogSyncStateTest` ×2 y `RecordUpToDateCheckUseCaseImplTest.aCheckAfterASuccessDoesNotWriteAnything`). Restaurado, `sha256sum` coincide y vuelven a pasar.
 
 ## Etapa 3 · Aplicar una versión en `catalog`
 

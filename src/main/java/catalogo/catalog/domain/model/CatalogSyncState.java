@@ -41,7 +41,6 @@ public class CatalogSyncState {
         lastErrorType = errorType;
     }
 
-    // Una verificación sin nada que aplicar solo corrige un fracaso anterior. Devuelve si cambió algo.
     public boolean recordUpToDateCheck(Instant at) {
         if (lastSyncResult != SyncResult.ERROR) {
             return false;
