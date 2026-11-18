@@ -3,7 +3,6 @@ package catalogo.synchronization.application.usecases;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
 import catalogo.catalog.domain.model.SyncErrorType;
-import catalogo.catalog.domain.model.SyncType;
 import catalogo.catalog.domain.model.WeeklySchedule;
 import catalogo.catalog.domain.ports.in.RecordSyncFailureUseCase;
 import catalogo.catalog.domain.ports.in.ReplaceCatalogUseCase;
@@ -71,7 +70,7 @@ public class SynchronizeFullCatalogUseCaseImpl implements SynchronizeFullCatalog
     private FullSyncResult fail(SyncErrorType errorType, String reason) {
         log.warn("Full catalog synchronization failed with {}: {}", errorType, reason);
         try {
-            recordSyncFailureUseCase.recordSyncFailure(SyncType.FULL, errorType);
+            recordSyncFailureUseCase.recordSyncFailure(errorType);
         } catch (RuntimeException e) {
             log.error("The failed full catalog synchronization could not be recorded: {}", e.getClass().getSimpleName());
         }

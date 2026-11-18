@@ -69,3 +69,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CatalogSnapshotResponse y CatalogSnapshot utilizan lo nuevos nombres. 
 - Se adaptaron los tests al cambio de nombre de los archivos y clases.
 - Ahora CatalogSnapshotMapper solo valida lo del snapshot no los formatos de las entidades, se actualizaron y borraron algunos de sus tests debido a estos cambios. 
+- Modificacion de archivos para que un fracaso no cambie el ultimo tipo de sincronizacion exitosa. Actualizados y añadidos tests por esto.

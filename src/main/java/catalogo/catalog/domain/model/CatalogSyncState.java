@@ -35,10 +35,20 @@ public class CatalogSyncState {
         lastErrorType = null;
     }
 
-    public void recordFailure(SyncType syncType, SyncErrorType errorType, Instant at) {
+    public void recordFailure(SyncErrorType errorType, Instant at) {
         lastSyncAt = at;
-        lastSyncType = syncType;
         lastSyncResult = SyncResult.ERROR;
         lastErrorType = errorType;
+    }
+
+    // Una verificación sin nada que aplicar solo corrige un fracaso anterior. Devuelve si cambió algo.
+    public boolean recordUpToDateCheck(Instant at) {
+        if (lastSyncResult != SyncResult.ERROR) {
+            return false;
+        }
+        lastSyncAt = at;
+        lastSyncResult = SyncResult.SUCCESS;
+        lastErrorType = null;
+        return true;
     }
 }

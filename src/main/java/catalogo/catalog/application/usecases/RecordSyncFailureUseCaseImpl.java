@@ -2,7 +2,6 @@ package catalogo.catalog.application.usecases;
 
 import catalogo.catalog.domain.model.CatalogSyncState;
 import catalogo.catalog.domain.model.SyncErrorType;
-import catalogo.catalog.domain.model.SyncType;
 import catalogo.catalog.domain.ports.in.RecordSyncFailureUseCase;
 import catalogo.catalog.domain.ports.out.CatalogSyncStateRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +20,9 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
 
     @Override
     @Transactional
-    public void recordSyncFailure(SyncType syncType, SyncErrorType errorType) {
+    public void recordSyncFailure(SyncErrorType errorType) {
         CatalogSyncState state = catalogSyncStateRepository.get();
-        state.recordFailure(syncType, errorType, clock.instant());
+        state.recordFailure(errorType, clock.instant());
         catalogSyncStateRepository.save(state);
     }
 }

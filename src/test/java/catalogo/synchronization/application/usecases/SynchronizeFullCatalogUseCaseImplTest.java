@@ -3,7 +3,6 @@ package catalogo.synchronization.application.usecases;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
 import catalogo.catalog.domain.model.SyncErrorType;
-import catalogo.catalog.domain.model.SyncType;
 import catalogo.catalog.domain.model.WeeklySchedule;
 import catalogo.catalog.domain.ports.in.RecordSyncFailureUseCase;
 import catalogo.catalog.domain.ports.in.ReplaceCatalogUseCase;
@@ -200,8 +199,7 @@ class SynchronizeFullCatalogUseCaseImplTest {
             }
             replacements.add(new Replacement(version, categories, professionals, schedules));
         };
-        RecordSyncFailureUseCase record = (syncType, errorType) -> {
-            assertThat(syncType).isEqualTo(SyncType.FULL);
+        RecordSyncFailureUseCase record = errorType -> {
             if (recordFailure != null) {
                 throw recordFailure;
             }

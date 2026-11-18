@@ -119,6 +119,7 @@ class FullSynchronizationIntegrationTest {
     void aFailureAfterASuccessKeepsTheCopyTheVersionAndTheLastSuccess(CapturedOutput output) {
         assertThat(synchronizationService.synchronizeFullCatalog()).isEqualTo(new FullSyncResult.Applied(57));
         Timestamp lastSuccess = (Timestamp) tables.syncState().get("last_successful_sync_at");
+        jdbcTemplate.update("UPDATE catalog_sync_state SET last_sync_type = 'INCREMENTAL'");
         CATEDRA.respondToSnapshot(Response.empty(503));
         int requestsBefore = CATEDRA.snapshotRequests().size();
 
@@ -131,6 +132,7 @@ class FullSynchronizationIntegrationTest {
         assertThat(state)
                 .containsEntry("local_version", 57L)
                 .containsEntry("last_successful_sync_at", lastSuccess)
+                .containsEntry("last_sync_type", "INCREMENTAL")
                 .containsEntry("last_sync_result", "ERROR")
                 .containsEntry("last_error_type", "SOURCE_UNAVAILABLE");
         assertThat(((Timestamp) state.get("last_sync_at")).toInstant()).isAfter(lastSuccess.toInstant());
