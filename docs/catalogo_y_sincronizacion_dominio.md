@@ -103,7 +103,7 @@ classDiagram
 | `CatalogSyncState` | `localVersion` | `Long` | Vacío hasta que la primera sincronización completa termina bien; "catálogo inicializado" significa que tiene valor |
 | `CatalogSyncState` | `lastSyncAt` | `Instant` | Momento, en UTC, del último intento de sincronización |
 | `CatalogSyncState` | `lastSuccessfulSyncAt` | `Instant` | Momento, en UTC, de la última sincronización que terminó bien y aplicó cambios (C01, o C02 y C03 con al menos una versión aplicada). Vacío hasta la primera; un fracaso no lo cambia |
-| `CatalogSyncState` | `lastSyncType` | `SyncType` | `FULL` para el snapshot (C01); `INCREMENTAL` para C02 y C03 |
+| `CatalogSyncState` | `lastSyncType` | `SyncType` | Tipo de la última sincronización que terminó bien y aplicó cambios: `FULL` (C01) o `INCREMENTAL` (C02 y C03). Vacío hasta la primera; un fracaso no lo cambia |
 | `CatalogSyncState` | `lastSyncResult` | `SyncResult` | `SUCCESS` o `ERROR` |
 | `CatalogSyncState` | `lastErrorType` | `SyncErrorType` | Solo tiene valor si el resultado fue `ERROR` |
 | `ProcessedEvent` | `eventId` | `String` | Identidad del registro y clave de idempotencia (anexo §15.1) |

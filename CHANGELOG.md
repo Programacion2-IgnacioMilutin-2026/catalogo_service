@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CatedraEntityMapper, verificacion de formatos de la catedra conjunta unificada tanto para el snapshot como para redis. 
 - Test para CatedraEntityMapper.
 ### Changed 
+- Documentacion actualizada debido decisiones tomadas para aplicar el casod e uso C03-VerificacionPeriodica.
 - Se renombraron los modelos del snapshot de categoria, profesional y horario semanal del slice 'Catedra' a CatedraCategory y asi. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacio por parte de ambos.
 - Se renombraron los dto de respuesta del cliente del snapshot de categoria, profesional y horario semanal del slice 'Catedra' con el prefijo 'Catedra'. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacion por parte de ambos.
 - CatalogSnapshotResponse y CatalogSnapshot utilizan lo nuevos nombres. 
