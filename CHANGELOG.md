@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lectura y escritura que realiza la verificacion. Solo escribe si esta al dia y lo ultimo que registra es un fallo.
 - Archivos para aplicar una sincronizacion incremental, verificando que no rompa la integridad de la base de datos. Tambien sus test. Todo esto en slice 'Catalog'.
 - Excepciones del slice 'Catalog'.
+- Dependencias en pom.xml incluy lettuce-core en vez del starter de redis.
+- En tests un redis simulado para no utlizar el real en los tests.
 ### Changed 
 - Documentacion actualizada debido decisiones tomadas para aplicar el casod e uso C03-VerificacionPeriodica.
 - Se renombraron los modelos del snapshot de categoria, profesional y horario semanal del slice 'Catedra' a CatedraCategory y asi. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacio por parte de ambos.
