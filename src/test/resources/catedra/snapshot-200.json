@@ -1,0 +1,97 @@
+{
+  "snapshotVersion": 57,
+  "generatedAt": "2026-10-02T18:25:43.918273645Z",
+  "professionalCategories": [
+    {
+      "id": 501,
+      "name": "Kinesiología",
+      "description": "Rehabilitación física y tratamiento de lesiones musculares",
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    },
+    {
+      "id": 502,
+      "name": "Nutrición",
+      "description": "Planes de alimentación y control de peso",
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    }
+  ],
+  "professionals": [
+    {
+      "id": 601,
+      "categoryId": 501,
+      "firstName": "Valentina",
+      "lastName": "Ibáñez",
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-09-14T16:41:07.204518Z"
+    },
+    {
+      "id": 602,
+      "categoryId": 501,
+      "firstName": "Tomás",
+      "lastName": "Ferreyra",
+      "enabled": false,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    },
+    {
+      "id": 603,
+      "categoryId": 502,
+      "firstName": "Lucía",
+      "lastName": "Núñez",
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    }
+  ],
+  "weeklySchedules": [
+    {
+      "id": 701,
+      "professionalId": 601,
+      "dayOfWeek": "MONDAY",
+      "startTime": "08:00:00",
+      "endTime": "12:00:00",
+      "slotDurationMinutes": 30,
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    },
+    {
+      "id": 702,
+      "professionalId": 601,
+      "dayOfWeek": "THURSDAY",
+      "startTime": "14:00:00",
+      "endTime": "18:00:00",
+      "slotDurationMinutes": 30,
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    },
+    {
+      "id": 703,
+      "professionalId": 602,
+      "dayOfWeek": "TUESDAY",
+      "startTime": "09:00:00",
+      "endTime": "13:00:00",
+      "slotDurationMinutes": 20,
+      "enabled": false,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    },
+    {
+      "id": 704,
+      "professionalId": 603,
+      "dayOfWeek": "FRIDAY",
+      "startTime": "10:00:00",
+      "endTime": "14:00:00",
+      "slotDurationMinutes": 20,
+      "enabled": true,
+      "createdAt": "2026-06-10T13:00:00Z",
+      "updatedAt": "2026-06-10T13:00:00Z"
+    }
+  ]
+}

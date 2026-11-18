@@ -31,6 +31,8 @@ class CatedraLoginClientAdapterTest {
     private static final Duration READ_TIMEOUT = Duration.ofMillis(300);
     private static final CatedraProperties.Login LOGIN = new CatedraProperties.Login(
             5, Duration.ofSeconds(1), 2, Duration.ofSeconds(30), Duration.ofSeconds(60));
+    private static final CatedraProperties.Snapshot SNAPSHOT = new CatedraProperties.Snapshot(
+            CONNECT_TIMEOUT, READ_TIMEOUT, 5, Duration.ofSeconds(1), 2, Duration.ofSeconds(30));
 
     private final FakeCatedraServer catedra = FakeCatedraServer.start();
 
@@ -152,7 +154,7 @@ class CatedraLoginClientAdapterTest {
                 "base-url".equals(missing) ? "" : catedra.baseUrl(),
                 "username".equals(missing) ? null : FakeCatedraServer.TEST_USERNAME,
                 "password".equals(missing) ? "  " : FakeCatedraServer.TEST_PASSWORD,
-                CONNECT_TIMEOUT, READ_TIMEOUT, LOGIN), new TechnicalIntegrationMapper());
+                CONNECT_TIMEOUT, READ_TIMEOUT, LOGIN, SNAPSHOT), new TechnicalIntegrationMapper());
 
         TechnicalLoginResult result = adapter.login();
 
@@ -223,6 +225,6 @@ class CatedraLoginClientAdapterTest {
 
     private static CatedraProperties properties(String baseUrl) {
         return new CatedraProperties(baseUrl, FakeCatedraServer.TEST_USERNAME, FakeCatedraServer.TEST_PASSWORD,
-                CONNECT_TIMEOUT, READ_TIMEOUT, LOGIN);
+                CONNECT_TIMEOUT, READ_TIMEOUT, LOGIN, SNAPSHOT);
     }
 }

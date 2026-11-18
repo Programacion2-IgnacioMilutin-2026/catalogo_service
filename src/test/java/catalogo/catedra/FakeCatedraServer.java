@@ -17,6 +17,7 @@ import java.util.List;
 public final class FakeCatedraServer implements AutoCloseable {
 
     public static final String LOGIN_PATH = "/api/authenticate";
+    public static final String SNAPSHOT_PATH = "/api/synchronization/snapshot";
     public static final String TEST_USERNAME = "test-login";
     public static final String TEST_PASSWORD = "test-password";
     public static final String TEST_TOKEN = "test-technical-jwt";
@@ -24,6 +25,7 @@ public final class FakeCatedraServer implements AutoCloseable {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final String LOGIN_RESPONSE = readResource("/catedra/login-200.json");
+    private static final String SNAPSHOT_RESPONSE = readResource("/catedra/snapshot-200.json");
 
     private final FakeHttpServer http;
 
@@ -34,6 +36,7 @@ public final class FakeCatedraServer implements AutoCloseable {
     public static FakeCatedraServer start() {
         FakeCatedraServer catedra = new FakeCatedraServer(FakeHttpServer.start());
         catedra.respondToLogin(provisionedLogin());
+        catedra.respondToSnapshot(validSnapshot());
         return catedra;
     }
 
@@ -47,6 +50,14 @@ public final class FakeCatedraServer implements AutoCloseable {
 
     public List<ReceivedRequest> loginRequests() {
         return http.receivedRequests(LOGIN_PATH);
+    }
+
+    public void respondToSnapshot(Response... responses) {
+        http.respond(SNAPSHOT_PATH, responses);
+    }
+
+    public List<ReceivedRequest> snapshotRequests() {
+        return http.receivedRequests(SNAPSHOT_PATH);
     }
 
     public List<ReceivedRequest> receivedRequests() {
@@ -83,6 +94,20 @@ public final class FakeCatedraServer implements AutoCloseable {
         login.put("somethingNew", "value");
         integrationOf(login).put("anotherNewField", 7);
         return Response.of(200, JSON.writeValueAsString(login));
+    }
+
+    // El recorte del snapshot real, con datos ficticios.
+    public static Response validSnapshot() {
+        return Response.of(200, SNAPSHOT_RESPONSE);
+    }
+
+    // Una copia del recorte para modificarla en un test y responderla con snapshotOf.
+    public static ObjectNode snapshotTree() {
+        return (ObjectNode) JSON.readTree(SNAPSHOT_RESPONSE);
+    }
+
+    public static Response snapshotOf(JsonNode snapshot) {
+        return Response.of(200, JSON.writeValueAsString(snapshot));
     }
 
     public static Response problem(int status, String code) {

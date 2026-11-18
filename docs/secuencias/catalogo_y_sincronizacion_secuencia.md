@@ -21,10 +21,9 @@ sequenceDiagram
             CS->>CS: validate completeness and references between entities
             alt snapshot valid
                 CS->>DB: begin unit of work
-                CS->>DB: replace categories, professionals and weekly schedules, set local version = snapshotVersion
+                CS->>DB: replace categories, professionals and weekly schedules, set local version = snapshotVersion, record sync result (FULL, SUCCESS)
                 alt commit succeeds
                     DB-->>CS: committed
-                    CS->>DB: record sync result (FULL, SUCCESS)
                     CS-->>T: done
                     Note over T,CS: the caller repeats its incremental pass once
                 else persistence failure

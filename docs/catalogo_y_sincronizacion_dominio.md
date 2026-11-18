@@ -49,6 +49,7 @@ classDiagram
     class CatalogSyncState {
         +Long localVersion
         +Instant lastSyncAt
+        +Instant lastSuccessfulSyncAt
         +SyncType lastSyncType
         +SyncResult lastSyncResult
         +SyncErrorType lastErrorType
@@ -101,6 +102,7 @@ classDiagram
 | `WeeklySchedule` | `enabled` | `boolean` | Baja lógica |
 | `CatalogSyncState` | `localVersion` | `Long` | Vacío hasta que la primera sincronización completa termina bien; "catálogo inicializado" significa que tiene valor |
 | `CatalogSyncState` | `lastSyncAt` | `Instant` | Momento, en UTC, del último intento de sincronización |
+| `CatalogSyncState` | `lastSuccessfulSyncAt` | `Instant` | Momento, en UTC, de la última sincronización que terminó bien y aplicó cambios (C01, o C02 y C03 con al menos una versión aplicada). Vacío hasta la primera; un fracaso no lo cambia |
 | `CatalogSyncState` | `lastSyncType` | `SyncType` | `FULL` para el snapshot (C01); `INCREMENTAL` para C02 y C03 |
 | `CatalogSyncState` | `lastSyncResult` | `SyncResult` | `SUCCESS` o `ERROR` |
 | `CatalogSyncState` | `lastErrorType` | `SyncErrorType` | Solo tiene valor si el resultado fue `ERROR` |
@@ -121,7 +123,7 @@ classDiagram
 | # | Regla |
 | --- | --- |
 | 1 | Los `id` los asigna la cátedra y nunca se generan localmente |
-| 2 | Baja lógica: lo deshabilitado se conserva y se devuelve con `enabled`; nada se borra físicamente |
+| 2 | Baja lógica: lo que la cátedra deshabilita se conserva y se devuelve con `enabled`. Solo se quita de la copia lo que la cátedra deja de publicar en el snapshot (C01), para que la copia sea exactamente la del snapshot |
 | 3 | Cada profesional referencia una categoría existente, y cada horario un profesional existente. Si no, no se aplica y se trata como estado no verificable |
 | 4 | El `enabled` de categoría, profesional y horario son independientes entre sí |
 | 5 | Solo los horarios habilitados cuentan para filtrar por disponibilidad semanal y generar turnos |

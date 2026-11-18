@@ -30,3 +30,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Servicio e implementacion de los casos de uso del inicio de sesion de la cuenta tecnica en el slice 'Catedra'.
 - Reloj del servicio en nuevo slice 'Config'.
 - Disparador del login tecnico inicial cuando termina de iniciar el servicio. 
+
+## 2026-11-17
+### Added
+- Documentacion de SDD para el caso de uso C01-SincronizacionCompleta.
+- Creacion de tablas y migracion de la base de datos local de catalogo. 
+- Archivos de dominio del nuevo slice 'Catalog' (Tablas de la DB y el stado de sincronizacion).
+- Entidades de la persistencia en slice 'Catalog' y mappers del dominio a entidad y viceversa.
+- Repositorios JPA de las entidades del slice 'Catalog'.
+- Modelos de ejemplo para los tests y tests para los modelos del dominio(CatalogSyncState), y los mappers de la persistencia del slice 'Catalog'.
+- Puertos de salida de los repositorios en slice 'Catalog'.
+- Adaptadores en la persistencia de slice 'Catalog'.
+- Tests de los adaptadores y limpiador de la base de datos de los test en slice 'Catalog'.
+- Puertos de entrada de los casos ReplaceCatalogUseCase y RecordSyncFailureUseCase de uso de slice 'Catalog'.
+- Implementacion de los casos de uso en slice 'Catalog'.
+- Modelo del snapshot en slice 'Catedra', con sus puertos de salida y de entrada.
+- Test de los modelos del snapshot del slice 'Catedra' y un ejemplos del snapshot para utilizar en los tests.
+- Ciente HTTP del snapshot en slice 'Catedra'. incluye DTOs, mappers, adaptadores, configuraciones y validaciones.
+- Tests del cliente HTTP para el snapshot en slice 'Catedra'.
+- Implementacion del caso de uso para obtener el snapshot de la catedra con sus tests en slice 'Catedra'.
+- Nuevo slice 'Syncronization'. Archivos del dominio, incluye modelo y puerto de entrada para la sincronizacion completa.
+- Archivos de aplicacion al slice 'Syncronization', incluye implementacion del caso de uso de la sincronizacion completa, el candado y el servicio.
+- Tests de la sincronizacion completa del catalogo.
+- Test E2E que testea la sincronizacion completa.
+### Changed
+- Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
+- El pom.xml se actualizo para que el test E2e.
