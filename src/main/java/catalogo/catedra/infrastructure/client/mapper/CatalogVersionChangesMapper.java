@@ -88,7 +88,7 @@ public class CatalogVersionChangesMapper {
     public static Set<Long> distinctIds(List<Long> ids) {
         return new LinkedHashSet<>(ids);
     }
-    
+
     public RedisReadResult<CatalogVersionChanges> versionChangesOf(long version, CatalogVersionChangesResponse changes,
                                                                    Map<Long, String> categoryJsons,
                                                                    Map<Long, String> professionalJsons,
