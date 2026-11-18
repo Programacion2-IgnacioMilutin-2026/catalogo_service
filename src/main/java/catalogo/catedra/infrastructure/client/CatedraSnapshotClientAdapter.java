@@ -47,6 +47,9 @@ public class CatedraSnapshotClientAdapter implements CatalogSnapshotClient {
                     .headers(headers -> headers.setBearerAuth(technicalToken))
                     .retrieve()
                     .body(CatalogSnapshotResponse.class);
+            if (response == null) {
+                return new SnapshotFetchResult.Invalid("Central API answered an incomplete snapshot: [empty response]");
+            }
             List<String> problems = catalogSnapshotMapper.problemsOf(response);
             if (!problems.isEmpty()) {
                 return new SnapshotFetchResult.Invalid("Central API answered an incomplete snapshot: " + problems);
