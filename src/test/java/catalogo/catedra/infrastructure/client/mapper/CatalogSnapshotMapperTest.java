@@ -17,12 +17,12 @@ import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Qué datos y formatos tiene que traer el snapshot, y cómo se convierte al modelo.
+// Qué datos y formatos tiene que traer el snapshot y cómo se convierte al modelo.
 class CatalogSnapshotMapperTest {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
-    private final CatalogSnapshotMapper mapper = new CatalogSnapshotMapper();
+    private final CatalogSnapshotMapper mapper = new CatalogSnapshotMapper(new CatedraEntityMapper());
 
     @Test
     void theRecordedSnapshotIsReadCompletely() {
