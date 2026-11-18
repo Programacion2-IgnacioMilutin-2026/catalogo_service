@@ -131,6 +131,8 @@ class CatedraSnapshotClientAdapterTest {
                 FakeCatedraServer.TEST_PASSWORD, Duration.ofSeconds(2), Duration.ofSeconds(2),
                 new CatedraProperties.Login(5, Duration.ofSeconds(1), 2, Duration.ofSeconds(30), Duration.ofSeconds(60)),
                 new CatedraProperties.Snapshot(Duration.ofSeconds(2), READ_TIMEOUT, 5, Duration.ofSeconds(1), 2,
+                        Duration.ofSeconds(30)),
+                new CatedraProperties.Redis(Duration.ofSeconds(2), Duration.ofSeconds(2), 3, Duration.ofSeconds(1), 2,
                         Duration.ofSeconds(30)));
         return new CatedraSnapshotClientAdapter(properties, new CatalogSnapshotMapper(new CatedraEntityMapper()));
     }
