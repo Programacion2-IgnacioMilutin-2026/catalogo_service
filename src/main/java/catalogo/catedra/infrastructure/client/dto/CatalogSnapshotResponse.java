@@ -19,7 +19,7 @@ import java.util.List;
 public class CatalogSnapshotResponse {
 
     private Long snapshotVersion;
-    private List<SnapshotCategoryResponse> professionalCategories;
-    private List<SnapshotProfessionalResponse> professionals;
-    private List<SnapshotWeeklyScheduleResponse> weeklySchedules;
+    private List<CatedraCategoryResponse> professionalCategories;
+    private List<CatedraProfessionalResponse> professionals;
+    private List<CatedraWeeklyScheduleResponse> weeklySchedules;
 }

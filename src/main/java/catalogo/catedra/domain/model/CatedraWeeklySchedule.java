@@ -3,8 +3,8 @@ package catalogo.catedra.domain.model;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 
-// Horario semanal tal como lo entrega el snapshot de la cátedra.
-public record SnapshotWeeklySchedule(
+// Horario semanal tal como lo publica la cátedra, en el snapshot y en Redis.
+public record CatedraWeeklySchedule(
         long id,
         long professionalId,
         DayOfWeek dayOfWeek,

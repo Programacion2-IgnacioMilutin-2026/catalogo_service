@@ -8,9 +8,9 @@ import java.util.function.ToLongFunction;
 
 // Snapshot completo del catálogo, ya leído. Prueba la consistencia para reemplazar la copia local.
 public record CatalogSnapshot(long snapshotVersion,
-                              List<SnapshotCategory> categories,
-                              List<SnapshotProfessional> professionals,
-                              List<SnapshotWeeklySchedule> weeklySchedules) {
+                              List<CatedraCategory> categories,
+                              List<CatedraProfessional> professionals,
+                              List<CatedraWeeklySchedule> weeklySchedules) {
 
     public CatalogSnapshot {
         categories = List.copyOf(categories);
@@ -23,9 +23,9 @@ public record CatalogSnapshot(long snapshotVersion,
         if (categories.isEmpty()) {
             problems.add("no professional categories");
         }
-        Set<Long> categoryIds = idsOf(categories, SnapshotCategory::id, "professional category", problems);
-        Set<Long> professionalIds = idsOf(professionals, SnapshotProfessional::id, "professional", problems);
-        idsOf(weeklySchedules, SnapshotWeeklySchedule::id, "weekly schedule", problems);
+        Set<Long> categoryIds = idsOf(categories, CatedraCategory::id, "professional category", problems);
+        Set<Long> professionalIds = idsOf(professionals, CatedraProfessional::id, "professional", problems);
+        idsOf(weeklySchedules, CatedraWeeklySchedule::id, "weekly schedule", problems);
         professionals.stream()
                 .filter(professional -> !categoryIds.contains(professional.categoryId()))
                 .forEach(professional -> problems.add("professional " + professional.id()

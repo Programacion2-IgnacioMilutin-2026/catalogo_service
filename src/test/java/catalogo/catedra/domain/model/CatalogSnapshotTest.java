@@ -19,8 +19,8 @@ class CatalogSnapshotTest {
     @Test
     void referencesToDisabledEntitiesAreValid() {
         CatalogSnapshot snapshot = new CatalogSnapshot(1,
-                List.of(new SnapshotCategory(1, "Cerrada", null, false)),
-                List.of(new SnapshotProfessional(10, 1, "Ana", "Gómez", false)),
+                List.of(new CatedraCategory(1, "Cerrada", null, false)),
+                List.of(new CatedraProfessional(10, 1, "Ana", "Gómez", false)),
                 List.of(CatalogSnapshots.schedule(100, 10, DayOfWeek.MONDAY, "09:00", "12:00", 30, false)));
 
         assertThat(snapshot.problems()).isEmpty();
@@ -50,11 +50,11 @@ class CatalogSnapshotTest {
 
     @Test
     void aRepeatedIdInAnyCollectionIsAProblem() {
-        List<SnapshotCategory> categories = new ArrayList<>(CatalogSnapshots.categories());
-        categories.add(new SnapshotCategory(501, "Otra", null, true));
-        List<SnapshotProfessional> professionals = new ArrayList<>(CatalogSnapshots.professionals());
-        professionals.add(new SnapshotProfessional(603, 502, "Otro", "Nombre", true));
-        List<SnapshotWeeklySchedule> schedules = new ArrayList<>(CatalogSnapshots.weeklySchedules());
+        List<CatedraCategory> categories = new ArrayList<>(CatalogSnapshots.categories());
+        categories.add(new CatedraCategory(501, "Otra", null, true));
+        List<CatedraProfessional> professionals = new ArrayList<>(CatalogSnapshots.professionals());
+        professionals.add(new CatedraProfessional(603, 502, "Otro", "Nombre", true));
+        List<CatedraWeeklySchedule> schedules = new ArrayList<>(CatalogSnapshots.weeklySchedules());
         schedules.add(CatalogSnapshots.schedule(704, 603, DayOfWeek.SATURDAY, "09:00", "10:00", 30, true));
 
         CatalogSnapshot snapshot = new CatalogSnapshot(1, categories, professionals, schedules);
@@ -67,8 +67,8 @@ class CatalogSnapshotTest {
 
     @Test
     void aProfessionalWithAMissingCategoryIsAProblem() {
-        List<SnapshotProfessional> professionals = new ArrayList<>(CatalogSnapshots.professionals());
-        professionals.add(new SnapshotProfessional(604, 999, "Sin", "Categoría", true));
+        List<CatedraProfessional> professionals = new ArrayList<>(CatalogSnapshots.professionals());
+        professionals.add(new CatedraProfessional(604, 999, "Sin", "Categoría", true));
 
         CatalogSnapshot snapshot = new CatalogSnapshot(1, CatalogSnapshots.categories(), professionals,
                 CatalogSnapshots.weeklySchedules());
@@ -79,7 +79,7 @@ class CatalogSnapshotTest {
 
     @Test
     void aScheduleWithAMissingProfessionalIsAProblem() {
-        List<SnapshotWeeklySchedule> schedules = new ArrayList<>(CatalogSnapshots.weeklySchedules());
+        List<CatedraWeeklySchedule> schedules = new ArrayList<>(CatalogSnapshots.weeklySchedules());
         schedules.add(CatalogSnapshots.schedule(705, 999, DayOfWeek.FRIDAY, "09:00", "10:00", 30, true));
 
         CatalogSnapshot snapshot = new CatalogSnapshot(1, CatalogSnapshots.categories(),
@@ -90,7 +90,7 @@ class CatalogSnapshotTest {
 
     @Test
     void theCollectionsCannotBeChangedAfterReading() {
-        List<SnapshotCategory> categories = new ArrayList<>(CatalogSnapshots.categories());
+        List<CatedraCategory> categories = new ArrayList<>(CatalogSnapshots.categories());
         CatalogSnapshot snapshot = new CatalogSnapshot(1, categories, List.of(), List.of());
 
         categories.clear();

@@ -56,3 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
 - El pom.xml se actualizo para que el test E2e.
+
+## 2026-11-18
+### Changed
+- Se renombraron los modelos del snapshot de categoria, profesional y horario semanal del slice 'Catedra' a CatedraCategory y asi. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacio por parte de ambos.
+- Se renombraron los dto de respuesta del cliente del snapshot de categoria, profesional y horario semanal del slice 'Catedra' con el prefijo 'Catedra'. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacion por parte de ambos.
+- CatalogSnapshotResponse y CatalogSnapshot utilizan lo nuevos nombres. 
+- Se adaptaron los tests al cambio de nombre de los archivos y clases.
