@@ -201,6 +201,7 @@
 					<excludedGroups>${tests.excluded-groups}</excludedGroups>
 					<systemPropertyVariables>
 						<catalogo.env-file>${tests.env-file}</catalogo.env-file>
+						<catalogo.synchronization.verification.enabled>false</catalogo.synchronization.verification.enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>
