@@ -3,7 +3,7 @@ package catalogo.catalog.application.usecases;
 import catalogo.TestcontainersConfiguration;
 import catalogo.catalog.CatalogSamples;
 import catalogo.catalog.CatalogTables;
-import catalogo.catalog.application.exception.CatalogVersionNotVerifiableException;
+import catalogo.catalog.domain.model.ApplyCatalogVersionResult;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
 import catalogo.catalog.domain.model.WeeklySchedule;
@@ -68,9 +68,10 @@ class ApplyCatalogVersionUseCaseImplTest {
         WeeklySchedule twentyTwo = schedule(22, professionalRef(16));
         WeeklySchedule twentyThree = schedule(23, professionalRef(17));
 
-        applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(renamed, third),
+        ApplyCatalogVersionResult result = applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(renamed, third),
                 List.of(fifteenDisabled, sixteen), List.of(twentyOneMoved, twentyTwo, twentyThree));
 
+        assertThat(result).isEqualTo(new ApplyCatalogVersionResult.Applied(11));
         assertThat(tables.ids("professional_categories")).containsExactly(1L, 2L, 3L);
         assertThat(row(tables.categories(), 1)).containsEntry("name", "Clínica renombrada");
         assertThat(row(tables.categories(), 2))
@@ -104,11 +105,11 @@ class ApplyCatalogVersionUseCaseImplTest {
         ProfessionalCategory renamed = CatalogSamples.category(1);
         renamed.setName("No debería guardarse");
 
-        assertThatThrownBy(() -> applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(renamed),
-                List.of(professional(18, categoryRef(999))), List.of()))
-                .isInstanceOf(CatalogVersionNotVerifiableException.class)
-                .hasMessageContaining("professional 18 references the missing professional category 999");
+        ApplyCatalogVersionResult result = applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(renamed),
+                List.of(professional(18, categoryRef(999))), List.of());
 
+        assertThat(result).isEqualTo(new ApplyCatalogVersionResult.NotVerifiable(
+                List.of("professional 18 references the missing professional category 999")));
         assertThat(snapshot()).isEqualTo(before);
     }
 
@@ -116,11 +117,11 @@ class ApplyCatalogVersionUseCaseImplTest {
     void aScheduleWithAMissingProfessionalStopsTheVersionWithoutWritingAnything() {
         Snapshot before = snapshot();
 
-        assertThatThrownBy(() -> applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(),
-                List.of(professional(16, categoryRef(1))), List.of(schedule(24, professionalRef(999)))))
-                .isInstanceOf(CatalogVersionNotVerifiableException.class)
-                .hasMessageContaining("weekly schedule 24 references the missing professional 999");
+        ApplyCatalogVersionResult result = applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(),
+                List.of(professional(16, categoryRef(1))), List.of(schedule(24, professionalRef(999))));
 
+        assertThat(result).isEqualTo(new ApplyCatalogVersionResult.NotVerifiable(
+                List.of("weekly schedule 24 references the missing professional 999")));
         assertThat(snapshot()).isEqualTo(before);
     }
 
@@ -137,8 +138,7 @@ class ApplyCatalogVersionUseCaseImplTest {
         try {
             assertThatThrownBy(() -> applyCatalogVersionUseCase.applyCatalogVersion(11, List.of(renamed),
                     List.of(professional(16, categoryRef(1))), List.of(schedule(999, professionalRef(16)))))
-                    .isInstanceOf(RuntimeException.class)
-                    .isNotInstanceOf(CatalogVersionNotVerifiableException.class);
+                    .isInstanceOf(RuntimeException.class);
         } finally {
             jdbcTemplate.execute("DROP TRIGGER fail_on_schedule_999 ON weekly_schedules");
             jdbcTemplate.execute("DROP FUNCTION fail_on_schedule_999()");

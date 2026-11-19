@@ -1,6 +1,6 @@
 package catalogo.catalog.application.usecases;
 
-import catalogo.catalog.application.exception.CatalogVersionNotVerifiableException;
+import catalogo.catalog.domain.model.ApplyCatalogVersionResult;
 import catalogo.catalog.domain.model.CatalogSyncState;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
@@ -38,8 +38,9 @@ public class ApplyCatalogVersionUseCaseImpl implements ApplyCatalogVersionUseCas
 
     @Override
     @Transactional
-    public void applyCatalogVersion(long version, List<ProfessionalCategory> categories,
-                                    List<Professional> professionals, List<WeeklySchedule> weeklySchedules) {
+    public ApplyCatalogVersionResult applyCatalogVersion(long version, List<ProfessionalCategory> categories,
+                                                         List<Professional> professionals,
+                                                         List<WeeklySchedule> weeklySchedules) {
         List<String> problems = new ArrayList<>();
 
         Map<Long, ProfessionalCategory> knownCategories = withLocal(byId(categories, ProfessionalCategory::getId),
@@ -72,7 +73,7 @@ public class ApplyCatalogVersionUseCaseImpl implements ApplyCatalogVersionUseCas
         }
 
         if (!problems.isEmpty()) {
-            throw new CatalogVersionNotVerifiableException(version, problems);
+            return new ApplyCatalogVersionResult.NotVerifiable(problems);
         }
 
         professionalCategoryRepository.saveAll(categories);
@@ -82,6 +83,7 @@ public class ApplyCatalogVersionUseCaseImpl implements ApplyCatalogVersionUseCas
         CatalogSyncState state = catalogSyncStateRepository.get();
         state.recordSuccess(SyncType.INCREMENTAL, version, clock.instant());
         catalogSyncStateRepository.save(state);
+        return new ApplyCatalogVersionResult.Applied(version);
     }
 
     private static <T> Map<Long, T> withLocal(Map<Long, T> inVersion, Set<Long> referenced,
