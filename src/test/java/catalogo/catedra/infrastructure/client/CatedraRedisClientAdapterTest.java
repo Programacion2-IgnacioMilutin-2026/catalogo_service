@@ -181,7 +181,8 @@ class CatedraRedisClientAdapterTest {
                 new CatedraProperties.Snapshot(Duration.ofSeconds(2), Duration.ofSeconds(2), 5, Duration.ofSeconds(1), 2,
                         Duration.ofSeconds(30)),
                 new CatedraProperties.Redis(Duration.ofSeconds(2), COMMAND_TIMEOUT, 3, Duration.ofSeconds(1), 2,
-                        Duration.ofSeconds(30)));
+                        Duration.ofSeconds(30)),
+                new CatedraProperties.InitialLogin(Duration.ofMinutes(2), Duration.ofMillis(200)));
     }
 
     private static String reason(RedisReadResult<?> result) {

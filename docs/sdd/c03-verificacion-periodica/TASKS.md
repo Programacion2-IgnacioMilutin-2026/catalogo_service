@@ -90,19 +90,25 @@ Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suit
 
 ## Etapa 5 · Redis en `catedra`: los casos de uso
 
-- [ ] **TASK-09 · Las dos lecturas de Redis con sesión, renovación y reintentos**
+- [x] **TASK-09 · Las dos lecturas de Redis con sesión, renovación y reintentos**
   - Alcance: `catedra/application/support/CatalogRedisReader` (P14); `CatalogMetadataResult` y `CatalogVersionChangesResult`; puertos `GetCatalogMetadataUseCase` y `GetCatalogVersionChangesUseCase` con sus implementaciones (P2); en los tests, un cliente de Redis falso que responde en orden y guarda las integraciones recibidas.
   - Depende de: TASK-07
   - Resuelve: RF-03, RF-12, RF-14; CA-07, CA-09 y CA-10 en su parte de caso de uso
   - Validación: unitarios con el cliente falso y una sesión controlada: sin sesión, una renovación sin sesión rechazada y, si no hay, no disponible sin ningún intento; `WRONGPASS`, `NOAUTH` y `NOPERM`, una renovación y un segundo intento con la integración nueva, y rechazado si vuelve; renovación sin sesión, no disponible; no disponible, hasta 3 intentos con esperas crecientes (en milisegundos en el test) y obtenido si uno responde; inválido sin reintentar. Log de cada intento.
-  - Resultado: pendiente
+  - Resultado: 2026-11-19 (tanda 5, autorizada ese día). Creados `catedra/application/support/CatalogRedisReader` (recibe qué lectura hacer: pide la sesión o, si no hay, una renovación sin sesión rechazada; ante `CredentialsRejected` renueva con la sesión rechazada y repite una sola vez, sin contarlo como reintento; ante `Unavailable` reintenta con `CatalogRedisPolicy`; `Invalid` vuelve sin reintentar; un error inesperado cuenta como no disponible; registra cada intento sin la contraseña), los resultados `CatalogMetadataResult` y `CatalogVersionChangesResult` (`Obtained`, `Unavailable`, `Rejected`, `Invalid`), los puertos `GetCatalogMetadataUseCase` y `GetCatalogVersionChangesUseCase` y sus implementaciones, que le pasan la lectura al lector y traducen el resultado. En los tests, `ScriptedRedisClient` (responde en orden y guarda las integraciones y versiones recibidas).
+    - Tests nuevos: `CatalogRedisReaderTest` (13: sesión actual; sin sesión, renovación y lectura con ella; sin sesión ni renovación, ninguna lectura; rechazo, una renovación y repetición con la integración nueva; rechazo otra vez, sin tercera lectura; renovación vacía, sin segunda lectura; no disponible dos veces y después respuesta; no disponible hasta el último intento; esperas crecientes, al menos 300 ms con 100 y 200 ms; inválido sin reintentar; rechazo en un intento posterior, una sola renovación; error inesperado reintentado; sin la contraseña de Redis en el log), `GetCatalogMetadataUseCaseImplTest` (2) y `GetCatalogVersionChangesUseCaseImplTest` (2: la versión pedida llega al cliente; la traducción de cada resultado).
+    - `./mvnw -q test`: 359 tests en 39 clases (342 + 17), 0 fallos ni errores.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: (1) sin renovar ante un rechazo, fallan 4 tests; (2) sin reintentar lo no disponible, fallan 5.
 
-- [ ] **TASK-10 · Espera del login técnico inicial**
+- [x] **TASK-10 · Espera del login técnico inicial**
   - Alcance: `catedra/domain/model/InitialLoginWait`; `AwaitInitialTechnicalSessionUseCase` y su implementación (consulta el estado cada cierto tiempo hasta que deja de estar "conectando" o se cumple el tope); sección `initial-login` de `CatedraProperties` y su bean (P6, P10).
   - Depende de: ninguna
   - Resuelve: RF-01; CA-06 (parte de `catedra`)
   - Validación: unitarios con un repositorio de sesión controlado y esperas en milisegundos: la sesión pasa a habilitada antes del tope, devuelve la sesión; pasa a degradada, devuelve vacío; sigue "conectando" al cumplirse el tope, devuelve vacío; ya habilitada al empezar, devuelve enseguida. Ningún cambio en X01.
-  - Resultado: pendiente
+  - Resultado: 2026-11-19. Creados `catedra/domain/model/InitialLoginWait` (tope y cada cuánto mirar), `AwaitInitialTechnicalSessionUseCase` y su implementación (si la sesión está "conectando", la mira cada `pollInterval` hasta que cambia o se cumple el tope; devuelve la sesión si quedó habilitada, o vacío); `CatedraProperties` suma la sección `initial-login` (`max-wait` 2 min, `poll-interval` 200 ms) y `CatedraClientConfiguration` su bean. Los tres tests que construyen `CatedraProperties` suman el argumento. X01 no cambió (`git status` sin cambios en `TechnicalSession`, `StartTechnicalSessionUseCaseImpl` ni el repositorio de la sesión).
+    - Tests nuevos: `AwaitInitialTechnicalSessionUseCaseImplTest` (5, con el repositorio real en memoria, que empieza "conectando", y un hilo que cambia la sesión como lo haría el login): ya habilitada, sin esperar (menos de 100 ms); login que termina a los 150 ms, espera y sigue con esa sesión, con el aviso en el log y sin el JWT; login que termina degradado, vacío; error de configuración, vacío sin esperar; tope de 200 ms cumplido, vacío y el aviso en el log.
+    - `./mvnw -q test`: 364 tests en 40 clases (359 + 5), 0 fallos ni errores.
+    - Prueba en negativo: sin la espera (sale enseguida aunque esté "conectando"), fallan 2 tests. Restaurado, `sha256sum` coincide.
 
 ## Etapa 6 · La verificación en `synchronization`
 

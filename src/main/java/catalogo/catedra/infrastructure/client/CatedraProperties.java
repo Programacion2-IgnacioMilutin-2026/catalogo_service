@@ -15,7 +15,8 @@ public record CatedraProperties(
         @DefaultValue("10s") Duration readTimeout,
         @DefaultValue Login login,
         @DefaultValue Snapshot snapshot,
-        @DefaultValue Redis redis) {
+        @DefaultValue Redis redis,
+        @DefaultValue InitialLogin initialLogin) {
 
     public record Login(
             @DefaultValue("5") int maxAttempts,
@@ -43,10 +44,15 @@ public record CatedraProperties(
             @DefaultValue("30s") Duration maxDelay) {
     }
 
+    public record InitialLogin(
+            @DefaultValue("2m") Duration maxWait,
+            @DefaultValue("200ms") Duration pollInterval) {
+    }
+
     @Override
     public String toString() {
         return "CatedraProperties[baseUrl=" + baseUrl + ", username=" + username + ", password=***"
                 + ", connectTimeout=" + connectTimeout + ", readTimeout=" + readTimeout + ", login=" + login
-                + ", snapshot=" + snapshot + ", redis=" + redis + "]";
+                + ", snapshot=" + snapshot + ", redis=" + redis + ", initialLogin=" + initialLogin + "]";
     }
 }

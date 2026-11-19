@@ -81,3 +81,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 2026-11-19
 ### Added 
 - Lector de redis e implementacion de los casos de uso para leer redis en slice 'Catedra'.
+- Configuracion para esperar a que se realice el login tecnico.

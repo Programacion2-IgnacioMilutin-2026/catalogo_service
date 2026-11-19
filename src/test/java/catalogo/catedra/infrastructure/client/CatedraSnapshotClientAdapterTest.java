@@ -133,7 +133,8 @@ class CatedraSnapshotClientAdapterTest {
                 new CatedraProperties.Snapshot(Duration.ofSeconds(2), READ_TIMEOUT, 5, Duration.ofSeconds(1), 2,
                         Duration.ofSeconds(30)),
                 new CatedraProperties.Redis(Duration.ofSeconds(2), Duration.ofSeconds(2), 3, Duration.ofSeconds(1), 2,
-                        Duration.ofSeconds(30)));
+                        Duration.ofSeconds(30)),
+                new CatedraProperties.InitialLogin(Duration.ofMinutes(2), Duration.ofMillis(200)));
         return new CatedraSnapshotClientAdapter(properties, new CatalogSnapshotMapper(new CatedraEntityMapper()));
     }
 }
