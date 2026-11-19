@@ -51,6 +51,7 @@ public class CatalogVersionChangesMapper {
         return new RedisReadResult.Received<>(new CatalogMetadata(current, oldest));
     }
 
+    // Revisa los ids que cambiaron en la versión y mira que entidades cambiaron.
     public RedisReadResult<CatalogVersionChangesResponse> changesOf(long version, String json) {
         if (json == null) {
             return new RedisReadResult.Invalid<>("the changes of version " + version + " do not exist");
@@ -89,6 +90,7 @@ public class CatalogVersionChangesMapper {
         return new LinkedHashSet<>(ids);
     }
 
+    // Revisa el estado actual de cada entidad leída y arma la versión.
     public RedisReadResult<CatalogVersionChanges> versionChangesOf(long version, CatalogVersionChangesResponse changes,
                                                                    Map<Long, String> categoryJsons,
                                                                    Map<Long, String> professionalJsons,

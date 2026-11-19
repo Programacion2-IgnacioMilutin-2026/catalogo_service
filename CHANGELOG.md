@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependencias en pom.xml incluy lettuce-core en vez del starter de redis.
 - En tests un redis simulado para no utlizar el real en los tests.
 - Modelos, politicas y mapper que valida para redis y sus tests en slice 'Catedra'.
-- Cliente de Redis, su adaptador y sus tests en slice 'Catedra'
+- Cliente de Redis, su adaptador y sus tests en slice 'Catedra'.
 ### Changed 
 - Documentacion actualizada debido decisiones tomadas para aplicar el casod e uso C03-VerificacionPeriodica.
 - Se renombraron los modelos del snapshot de categoria, profesional y horario semanal del slice 'Catedra' a CatedraCategory y asi. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacio por parte de ambos.
@@ -77,3 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Se adaptaron los tests al cambio de nombre de los archivos y clases.
 - Ahora CatalogSnapshotMapper solo valida lo del snapshot no los formatos de las entidades, se actualizaron y borraron algunos de sus tests debido a estos cambios. 
 - Modificacion de archivos para que un fracaso no cambie el ultimo tipo de sincronizacion exitosa. Actualizados y añadidos tests por esto.
+
+## 2026-11-19
+### Added 
+- Lector de redis e implementacion de los casos de uso para leer redis en slice 'Catedra'.
