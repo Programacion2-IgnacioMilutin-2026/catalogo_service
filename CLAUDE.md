@@ -13,6 +13,7 @@ Las instrucciones generales del proyecto están en `documentacion/AGENTS.md`. El
   - Base: `CATALOGO_DB_NAME`, `CATALOGO_DB_USER` y `CATALOGO_DB_PORT` (por defecto `catalogo`, `catalogo` y `5433`).
   - Cuenta técnica de la cátedra: `CATALOGO_CATEDRA_BASE_URL`, `CATALOGO_CATEDRA_USERNAME` y `CATALOGO_CATEDRA_PASSWORD`. Es la misma cuenta que usa turnos. Si falta alguna, o la URL no es `http` o `https` válida, el servicio arranca con un warning y sin integración con la cátedra.
   - Opcional: `CATALOGO_PORT` (8081 por defecto; el 8080 lo usa turnos).
+  - Opcionales: los tiempos, los reintentos y la verificación periódica (ver "Propiedades ajustables").
 - La suite normal de tests nunca lee el `.env` ni llama a la cátedra real.
 
 ## Comandos
@@ -177,23 +178,32 @@ Un resultado que otro slice necesita leer va como resultado sellado en el domini
 
 ## Propiedades ajustables
 
-Todas tienen un valor por defecto y ninguna hace falta en el `.env`. Los mismos números por defecto aparecen en más de una sección a propósito (P10 del PLAN de C03): cada una se ajusta por separado.
+Todas tienen un valor por defecto y ninguna hace falta en el `.env`. Cada una se ajusta con una variable `CATALOGO_…` (en el `.env` o en el entorno), que `application.yaml` pasa a la propiedad con un placeholder `${VARIABLE:valor por defecto}`. Como en turnos, el `.env.example` las lista comentadas y con su valor por defecto (TASK-16 de C03).
 
-| Propiedad | Por defecto | Para qué |
-| --- | --- | --- |
-| `catalogo.catedra.connect-timeout` / `read-timeout` | `5s` / `10s` | Login técnico |
-| `catalogo.catedra.login.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `5`, `1s`, `2`, `30s` | Reintentos del login técnico |
-| `catalogo.catedra.login.min-interval` | `60s` | Mínimo entre dos logins |
-| `catalogo.catedra.initial-login.max-wait` / `poll-interval` | `2m` / `200ms` | Espera del login inicial (C03) |
-| `catalogo.catedra.snapshot.connect-timeout` / `read-timeout` | `5s` / `10s` | Pedido del snapshot |
-| `catalogo.catedra.snapshot.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `5`, `1s`, `2`, `30s` | Reintentos del snapshot |
-| `catalogo.catedra.redis.connect-timeout` / `command-timeout` | `5s` / `2s` | Conexión y cada comando de Redis |
-| `catalogo.catedra.redis.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `3`, `1s`, `2`, `30s` | Reintentos de una lectura de Redis |
-| `catalogo.synchronization.verification.enabled` | `true` | Enciende el disparador de la verificación. Surefire la pone en `false` en todos los tests |
-| `catalogo.synchronization.verification.interval` | `5m` | Espera entre el fin de una verificación y el comienzo de la siguiente |
-| `catalogo.synchronization.verification.persistence-retry.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `3`, `1s`, `2`, `30s` | Reintentos cuando la base falla al aplicar una versión |
+El valor por defecto está escrito dos veces, en el yaml y en el `@DefaultValue` del código. `ApplicationYamlVariablesTest` comprueba que coincidan, y que cada variable llegue a su propiedad. Los mismos números aparecen en más de una sección a propósito (P10 del PLAN de C03): cada una se ajusta por separado.
 
-`enabled` e `interval` se leen directo en el disparador, con el valor por defecto en el mismo lugar, y no están en `VerificationProperties` (TASK-12 de C03).
+Con una variable presente pero vacía (comprobado en `ApplicationYamlVariablesTest`):
+
+- una duración toma el valor por defecto;
+- un número (intentos o multiplicador) no se puede leer, y la aplicación no arranca;
+- `CATALOGO_VERIFICATION_ENABLED` apaga la verificación;
+- `CATALOGO_VERIFICATION_INTERVAL` impide el arranque.
+
+| Variable | Propiedad | Por defecto | Para qué |
+| --- | --- | --- | --- |
+| `CATALOGO_CATEDRA_CONNECT_TIMEOUT` / `_READ_TIMEOUT` | `catalogo.catedra.connect-timeout` / `read-timeout` | `5s` / `10s` | Login técnico |
+| `CATALOGO_CATEDRA_LOGIN_MAX_ATTEMPTS`, `_INITIAL_DELAY`, `_MULTIPLIER`, `_MAX_DELAY` | `catalogo.catedra.login.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `5`, `1s`, `2`, `30s` | Reintentos del login técnico |
+| `CATALOGO_CATEDRA_LOGIN_MIN_INTERVAL` | `catalogo.catedra.login.min-interval` | `60s` | Mínimo entre dos logins |
+| `CATALOGO_CATEDRA_INITIAL_LOGIN_MAX_WAIT` / `_POLL_INTERVAL` | `catalogo.catedra.initial-login.max-wait` / `poll-interval` | `2m` / `200ms` | Espera del login inicial (C03) |
+| `CATALOGO_CATEDRA_SNAPSHOT_CONNECT_TIMEOUT` / `_READ_TIMEOUT` | `catalogo.catedra.snapshot.connect-timeout` / `read-timeout` | `5s` / `10s` | Pedido del snapshot |
+| `CATALOGO_CATEDRA_SNAPSHOT_MAX_ATTEMPTS`, `_INITIAL_DELAY`, `_MULTIPLIER`, `_MAX_DELAY` | `catalogo.catedra.snapshot.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `5`, `1s`, `2`, `30s` | Reintentos del snapshot |
+| `CATALOGO_CATEDRA_REDIS_CONNECT_TIMEOUT` / `_COMMAND_TIMEOUT` | `catalogo.catedra.redis.connect-timeout` / `command-timeout` | `5s` / `2s` | Conexión y cada comando de Redis |
+| `CATALOGO_CATEDRA_REDIS_MAX_ATTEMPTS`, `_INITIAL_DELAY`, `_MULTIPLIER`, `_MAX_DELAY` | `catalogo.catedra.redis.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `3`, `1s`, `2`, `30s` | Reintentos de una lectura de Redis |
+| `CATALOGO_VERIFICATION_ENABLED` | `catalogo.synchronization.verification.enabled` | `true` | Enciende el disparador de la verificación. Surefire la pone en `false` en todos los tests: una propiedad del sistema le gana al yaml |
+| `CATALOGO_VERIFICATION_INTERVAL` | `catalogo.synchronization.verification.interval` | `5m` | Espera entre el fin de una verificación y el comienzo de la siguiente |
+| `CATALOGO_VERIFICATION_PERSISTENCE_MAX_ATTEMPTS`, `_INITIAL_DELAY`, `_MULTIPLIER`, `_MAX_DELAY` | `catalogo.synchronization.verification.persistence-retry.max-attempts`, `initial-delay`, `multiplier`, `max-delay` | `3`, `1s`, `2`, `30s` | Reintentos cuando la base falla al aplicar una versión |
+
+`enabled` e `interval` los lee el disparador directamente, no están en `VerificationProperties` (TASK-12 de C03). Su `@Scheduled` conserva `:5m` como valor por defecto por si falta el yaml.
 
 ## Tests
 

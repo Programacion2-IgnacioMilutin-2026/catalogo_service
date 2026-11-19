@@ -193,3 +193,24 @@ Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suit
         - Los ayudantes de test nuevos y la propiedad de Surefire.
       - `docs/decisiones/003-que-guarda-el-estado-de-sincronizacion.md`, con D7 de C01 y D4, D5 y D11 de C03.
     - Pendiente fuera de este repositorio: commitear en `documentacion` los cambios de C03 en el caso de uso, la secuencia y el dominio (los hace el usuario).
+
+## Agregado después del cierre
+
+- [x] **TASK-16 · Las propiedades ajustables como variables del `.env`**
+  - Origen: el usuario lo pidió el 2026-11-19, después de TASK-15: al `.env.example` le faltaban las variables configurables. Eligió la opción a), la misma forma que turnos.
+  - Alcance: en `application.yaml`, un placeholder `${CATALOGO_…:valor por defecto}` por cada propiedad de la tabla del `CLAUDE.md` (27: login, espera del login inicial, snapshot, Redis y verificación). En `.env.example`, las 27 variables comentadas, con su valor por defecto. En `CLAUDE.md`, la columna con el nombre de cada variable. Sin cambios de código en `src/main/java`.
+  - Depende de: TASK-15
+  - Resuelve: ningún CA nuevo; completa la configuración de RF-01 (intervalo) y D7 (timeouts y reintentos)
+  - Validación: un test que lee `application.yaml` y comprueba tres cosas: que cada variable llega a su propiedad; que sin variables los valores son los mismos que los `@DefaultValue`, para que el yaml no contradiga al código; y qué pasa con una variable presente pero vacía, en cada tipo (duración, entero, decimal, booleano). La suite completa en verde, y una prueba en negativo.
+  - Resultado: 2026-11-19.
+    - `application.yaml` suma 27 placeholders `${CATALOGO_…:valor por defecto}`: 21 en `catalogo.catedra` y 6 en `catalogo.synchronization.verification`. `.env.example` las lista comentadas, con su valor por defecto, agrupadas y explicadas. `CLAUDE.md` suma la columna de la variable en la tabla y cuenta qué pasa con una variable vacía.
+    - Creado `ApplicationYamlVariablesTest` (7 tests, sin base ni aplicación completa). Lee el `application.yaml` real y resuelve sus placeholders con un mapa de variables:
+      - las 27 variables con valores distintos de los de por defecto llegan a su propiedad;
+      - sin variables, el yaml da los mismos valores que los `@DefaultValue`;
+      - una duración vacía toma el valor por defecto;
+      - un entero o un decimal vacío no se puede leer (`BindException`).
+    - Los tests del disparador usan `ApplicationContextRunner`, sin las propiedades ni el entorno del sistema, para que no influya la propiedad de Surefire: sin variables, se crea; con `CATALOGO_VERIFICATION_ENABLED` vacía, no; con `CATALOGO_VERIFICATION_INTERVAL` vacía, el contexto falla.
+    - **Lo comprobado corrigió una suposición:** esperaba que cualquier variable vacía tomara el valor por defecto, y eso solo pasa con las duraciones. El `.env.example` y el `CLAUDE.md` dicen lo comprobado.
+    - Las 27 variables del `.env.example` son las mismas que las del yaml (comparadas con `diff`). La única variable del yaml que no está en el ejemplo es `CATALOGO_DB_HOST`, que ya estaba antes de esta tarea.
+    - `./mvnw -q test`: 401 tests en 47 clases (394 + 7), 0 fallos.
+    - Prueba en negativo, restaurada con `sha256sum` comprobado: con una variable mal escrita en el yaml (`CATALOGO_CATEDRA_REDIS_MAXATTEMPTS`) y un valor por defecto distinto del código (`31s` en `snapshot.max-delay`), fallaron `eachVariableReachesItsProperty`, `withoutVariablesTheYamlDefaultsAreTheCodeDefaults` y `anEmptyNumberVariableCannotBeBound`.
