@@ -148,12 +148,21 @@ Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suit
 
 ## Etapa 8 · E2E
 
-- [ ] **TASK-14 · E2E de la verificación contra la cátedra real**
+- [x] **TASK-14 · E2E de la verificación contra la cátedra real**
   - Alcance: `src/test/java/e2e/` (`@Tag("e2e")`): aplicación completa con la verificación encendida, base descartable de Testcontainers y la cátedra real del `.env`. Tres escenarios: base vacía (la verificación del arranque llega a `currentVersion`); versión local bajada con SQL a `currentVersion − 3` (incremental hasta `currentVersion`, tipo `INCREMENTAL`); versión local bajada a `oldestAvailableVersion − 1` (snapshot, tipo `FULL`) (P12.2). Antes de correrlo, se le pasa al usuario la lista exacta de pedidos a la cátedra y a Redis.
   - Depende de: TASK-13
   - Resuelve: CA-17
   - Validación: el usuario corre `./mvnw test -Pe2e` en su terminal; se leen los reportes y las líneas del resultado sin secretos, y se borra lo temporal. Si la cátedra no está disponible, queda como no verificado. Además: se saltea sin credenciales en el `.env` (comprobado con `-Dtests.env-file=<archivo inexistente>`).
-  - Resultado: pendiente
+  - Resultado: 2026-11-19 (tanda 8). Creado `e2e/CatalogVerificationE2ETest` (un solo método, porque mira el log del arranque): aplicación completa con la verificación encendida y un intervalo de 1 h, así que solo corre la del arranque; los escenarios 2 y 3 los pide el test. La versión local se baja con SQL en la base descartable del test.
+    - Sin credenciales (`./mvnw -q test -Pe2e -Dtests.env-file=/nonexistent/.env`): compila, y los dos E2E (C01 y C03) quedan salteados, sin pedidos a la cátedra.
+    - Corrida real, hecha por el usuario en su terminal después de ver la lista de pedidos (`./mvnw test -Pe2e`, con la salida en el scratchpad): `BUILD SUCCESS`, 2 tests, 0 fallos. `CatalogVerificationE2ETest` tardó 8,9 s y `FullSynchronizationE2ETest` 10,9 s. Este último sirve de regresión de los renombres y del mapper común de la etapa 1 contra el snapshot real: 359, con 8 categorías, 24 profesionales y 44 horarios, aplicado en 807 ms.
+    - Lo observado, con Redis en `currentVersion` 359 y `oldestAvailableVersion` 260 durante toda la corrida:
+      1. Base vacía: "Waiting for the initial technical login, at most PT2M", el pedido de la completa, "full synchronization applied version 359, checking Redis once more" y "up to date at version 359". Quedó `FULL` `SUCCESS` en 359.
+      2. Desde 356: se aplicaron 357, 358 y 359, cada una con "0 categories, 1 professionals, 0 weekly schedules". Respondió `Updated[localVersion=359]` en 1852 ms, con tipo `INCREMENTAL` y las mismas cantidades de filas.
+      3. Desde 259: "found a discontinuity … local version 259 is outside the available history 260 to 359", la completa en 359 y otra vez al día. Respondió `Updated[localVersion=359]` en 867 ms, con tipo `FULL`, comprobado porque la cátedra no publicó otra versión en el medio.
+    - Primera lectura de Redis hecha por el servicio, con Lettuce: la conexión con el ACL real funciona (handshake y `HGETALL`, `GET` y `HMGET` en pipeline), sin ningún error ni warning de Redis en el log. Eso confirma el ACL de test de TASK-06 y el handshake de TASK-08 contra la cátedra.
+    - Secretos: el test comprobó que la salida no contiene el JWT técnico, la contraseña de Redis ni la de la cuenta. Además, una revisión de la salida no encontró ninguna línea con `password`, `token`, `secret` o `Bearer`, ni nada con forma de JWT. El archivo de salida se borró después de leerlo.
+    - No verificado: la cantidad exacta de comandos que se mandaron a Redis (la lista que se le pasó al usuario era una estimación) y el comportamiento ante una caída real de Redis o de la API de la cátedra.
 
 ## Etapa 9 · Cierre
 
