@@ -166,9 +166,30 @@ Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suit
 
 ## Etapa 9 · Cierre
 
-- [ ] **TASK-15 · Regresión, chequeos y documentación**
+- [x] **TASK-15 · Regresión, chequeos y documentación**
   - Alcance: corrida completa y chequeos de la skill; `CLAUDE.md` (slices, excepciones de C03 de la P13, cómo usar Redis y la espera del login, tabla de propiedades ajustables incluidas las del snapshot y del login, el tipo ante un fracaso en "Cómo pedir la sincronización completa", ayudantes de test nuevos, lo comprobado con el E2E); `docs/decisiones/003` (qué guarda el estado de sincronización: D7 de C01, D4, D5 y D11 de C03). Sin cambios de código, salvo correcciones que surjan.
   - Depende de: TASK-01 a TASK-14
   - Resuelve: comprobación de todos los CA; `AGENTS.md`, "Código"
   - Validación: `./mvnw clean verify` en verde con el reporte de JaCoCo; los cinco chequeos de la sección 12 de la skill sin resultados fuera de las excepciones autorizadas (P13) y de la fachada (P1); copias de los documentos comparadas (`contratos_comunes.md` y X01 en los tres repositorios; los de catálogo entre `documentacion` y `docs/`); revisión de que cada CA tiene su evidencia en este archivo.
-  - Resultado: pendiente
+  - Resultado: 2026-11-19 (tanda 9). Sin cambios de código.
+    - `./mvnw clean verify`: `BUILD SUCCESS`, 394 tests en 46 clases, 0 fallos, errores ni salteados. El reporte `target/site/jacoco/jacoco.xml` da 96,7 % de líneas (1158/1197), 93,1 % de ramas (377/405) y 97,7 % de instrucciones.
+    - Chequeos de la sección 12 de la skill, con `catalogo` como `{basePackage}`:
+      - Del 1 al 4 (el dominio sin dependencias de fuera, `application` sin infraestructura, JPA ni web, las entidades solo en `persistence/entity`, sin `@Autowired`): sin resultados.
+      - El 5 (importaciones entre slices): todas salen de `synchronization/application/usecases` (`SynchronizeFullCatalogUseCaseImpl` y `VerifyCatalogVersionUseCaseImpl`) y van solo a `domain/model` y `domain/ports/in` de `catalog` y de `catedra`. Es la fachada (P1). `catalog` y `catedra` no importan de ningún otro slice.
+      - Ningún paquete vacío.
+    - Copias de los documentos, comparadas con `sha256sum`:
+      - `contratos_comunes.md` y `cuenta_tecnica_configuracion_usecases.md` (X01): idénticos en `documentacion`, `turnos_service/docs` y `catalog_service/docs`.
+      - Los casos de uso, el contrato, el dominio y la secuencia de catálogo: idénticos entre `documentacion` y `catalog_service/docs`.
+    - CA: cada uno de CA-01 a CA-17 está en el "Resuelve" de al menos una tarea cerrada con su evidencia. CA-17 es el E2E de TASK-14.
+    - Documentación:
+      - `CLAUDE.md`:
+        - Redis con Lettuce directo.
+        - Los slices con lo de C03, y `SchedulingConfig` en `config`.
+        - Las nueve excepciones de P13, y la regla de que un resultado que lee otro slice va como resultado sellado en el dominio.
+        - La espera del login inicial.
+        - El tipo que no cambia ante un fracaso.
+        - Las secciones nuevas: cómo pedir la verificación, cómo leer Redis (con el hallazgo de Lettuce) y la tabla de propiedades ajustables, incluidas las del login y del snapshot.
+        - Lo comprobado con el E2E.
+        - Los ayudantes de test nuevos y la propiedad de Surefire.
+      - `docs/decisiones/003-que-guarda-el-estado-de-sincronizacion.md`, con D7 de C01 y D4, D5 y D11 de C03.
+    - Pendiente fuera de este repositorio: commitear en `documentacion` los cambios de C03 en el caso de uso, la secuencia y el dominio (los hace el usuario).
