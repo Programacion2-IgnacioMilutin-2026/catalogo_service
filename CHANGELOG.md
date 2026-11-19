@@ -83,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lector de redis e implementacion de los casos de uso para leer redis en slice 'Catedra'.
 - Configuracion para esperar a que se realice el login tecnico.
 - Verificador de la version del catalogo y aplica los cambios si es necesario, en slice 'Syncronization'.
+- Disparador periodico de la verificacion en slice 'Syncronization'.
+- Tests de integracion para C03-VerificacionPerioca. 
 ### Removed 
 - Excepciones en slice 'Catalog' utilizadas para aplicar una versiond del catalogo, ahora devuelve un record con el error y resultado.
 ### Changed
