@@ -21,26 +21,25 @@ sequenceDiagram
             CS->>CS: validate completeness and references between entities
             alt snapshot valid
                 CS->>DB: begin unit of work
-                CS->>DB: replace categories, professionals and weekly schedules, set local version = snapshotVersion
+                CS->>DB: replace categories, professionals and weekly schedules, set local version = snapshotVersion, record sync result (FULL, SUCCESS)
                 alt commit succeeds
                     DB-->>CS: committed
-                    CS->>DB: record sync result (FULL, SUCCESS)
                     CS-->>T: done
                     Note over T,CS: the caller repeats its incremental pass once
                 else persistence failure
                     DB-->>CS: rollback, previous copy and version intact
-                    CS->>DB: record sync result (FULL, ERROR, PERSISTENCE_FAILURE)
+                    CS->>DB: record sync result (ERROR, PERSISTENCE_FAILURE), type unchanged
                 end
             else snapshot incomplete or inconsistent
-                CS->>DB: record sync result (FULL, ERROR, INVALID_DATA), copy unchanged
+                CS->>DB: record sync result (ERROR, INVALID_DATA), type unchanged, copy unchanged
             end
         else 401 (JWT expired or rejected)
             Note over CS,API: X01 renews the JWT, then the request is repeated once
         else timeout, 500 or 503
             CS->>CS: limited retries with growing wait
-            CS->>DB: if exhausted, record sync result (FULL, ERROR, SOURCE_UNAVAILABLE), copy unchanged
+            CS->>DB: if exhausted, record sync result (ERROR, SOURCE_UNAVAILABLE), type unchanged, copy unchanged
         else 403 (no technical client role)
-            CS->>DB: no retries, record sync result (FULL, ERROR, INTEGRATION_REJECTED)
+            CS->>DB: no retries, record sync result (ERROR, INTEGRATION_REJECTED), type unchanged
         end
     end
 ```
@@ -68,29 +67,31 @@ sequenceDiagram
     else periodic check (C03, at startup and every interval)
         SCH->>CS: run verification
         CS->>CS: if another sync is in progress, skip this run
+        opt no local version (C03)
+            Note over CS: full sync (section 1) before reading Redis, then this pass continues once if it succeeds
+        end
     end
     CS->>R: read metadata (currentVersion, oldestAvailableVersion)
     alt Redis unavailable
         CS->>CS: limited retries with growing wait
-        CS->>DB: if exhausted, record error (INCREMENTAL, ERROR, SOURCE_UNAVAILABLE), version unchanged
+        CS->>DB: if exhausted, record error (ERROR, SOURCE_UNAVAILABLE), type unchanged, version unchanged
         Note over CS,K: for a notice the offset is committed, C03 recovers the delay later
     else Redis rejects credentials
         Note over CS,R: X01 renews the configuration, the read is repeated once
     else metadata received
         R-->>CS: currentVersion, oldestAvailableVersion
         alt local version equals currentVersion
-            CS->>DB: record the check, nothing to apply
+            CS->>DB: nothing to apply; record the check only if the last attempt failed (SUCCESS, type unchanged), always logged
         else behind, with continuous history
             loop each pending version v, in ascending order
                 CS->>R: read catedra:sync:changes:v and the current state of each affected ID
                 R-->>CS: affected IDs and entities
-                CS->>DB: begin unit of work, apply changes, advance local version to v
+                CS->>DB: begin unit of work, apply changes, advance local version to v, record sync result (INCREMENTAL, SUCCESS)
                 DB-->>CS: commit
             end
-            CS->>DB: record sync result (INCREMENTAL, SUCCESS)
             Note over CS,DB: persistence failure rolls back only that version and follows the same retry policy
             Note over CS,R: changes:v missing or an affected ID not found is treated as a discontinuity, full sync
-        else no local version, too old or ahead of Redis (not verifiable)
+        else no local version (C02), too old or ahead of Redis (not verifiable)
             Note over CS: full sync (section 1), then this pass is repeated once
         end
         opt notice from Kafka

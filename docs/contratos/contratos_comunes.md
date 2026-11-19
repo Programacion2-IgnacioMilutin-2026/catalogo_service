@@ -122,7 +122,7 @@ Los errores usan `Content-Type: application/problem+json`, igual que la cátedra
 | Propiedades JSON | `camelCase` | `startTime` |
 | Fecha | `yyyy-MM-dd` | `2026-09-10` |
 | Instante | ISO-8601 en UTC | `2026-09-10T14:30:00Z` |
-| Hora local de atención | Se emite `HH:mm:ss` y se acepta `HH:mm` o `HH:mm:ss` | `08:30:00` |
+| Hora local de atención | Catálogo emite `HH:mm:ss`; turnos emite `HH:mm`. Los dos aceptan `HH:mm` o `HH:mm:ss` | `08:30:00` en catálogo, `08:30` en turnos |
 | Día de la semana | `MONDAY` a `SUNDAY` | `MONDAY` |
 | Enumeraciones | Texto en mayúsculas | `WAITING_FOR_PHONE` |
 
