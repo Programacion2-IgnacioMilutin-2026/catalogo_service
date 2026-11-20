@@ -19,13 +19,14 @@ Las instrucciones generales del proyecto están en `documentacion/AGENTS.md`. El
 
 ## Comandos
 
-Todos se ejecutaron y su resultado se observó (TASKS de X01, C01, C03 y C02).
+Todos se ejecutaron y su resultado se observó (TASKS de X01, C01, C03, C02 y C04).
 
 | Para | Comando |
 | --- | --- |
 | Levantar la base de desarrollo y esperar a que esté lista | `docker compose up -d --wait catalog-db` |
 | Ver el estado de los contenedores | `docker compose ps` |
 | Correr la aplicación (necesita la base levantada) | `./mvnw spring-boot:run` |
+| Correr la aplicación sin la integración con la cátedra, para probarla sin llamar a la cátedra real. Las variables del comando le ganan al `.env`, y el log muestra `Technical login disabled` (TASK-11 de C04) | `CATALOGO_CATEDRA_BASE_URL= CATALOGO_CATEDRA_USERNAME= CATALOGO_CATEDRA_PASSWORD= CATALOGO_VERIFICATION_ENABLED=false CATALOGO_CATEDRA_KAFKA_ENABLED=false ./mvnw spring-boot:run` |
 | Correr todos los tests (Testcontainers crea su propio PostgreSQL; no usan el compose) | `./mvnw test` |
 | Correr una o varias clases de test | `./mvnw test -Dtest='Clase1,Clase2'` |
 | Compilar desde cero y correr los tests | `./mvnw clean test` |
@@ -43,7 +44,7 @@ Todos se ejecutaron y su resultado se observó (TASKS de X01, C01, C03 y C02).
 - Variables de entorno con prefijo `CATALOGO_` y propiedades propias bajo `catalogo.`.
 - La aplicación escucha en el 8081 y la base se publica en el 5433 de la máquina; los dos puertos son configurables.
 - `compose.yaml` tiene por ahora solo la base (`catalog-db`, PostgreSQL 18). El `Dockerfile`, la aplicación en el compose y `compose.full-system.yaml` son de la etapa de Docker.
-- Dependencias incluidas desde el inicio, aunque algunas todavía no se usan: web, JPA, Flyway, PostgreSQL, validation, Lombok, security, OAuth2 resource server, Kafka y Testcontainers.
+- Dependencias incluidas desde el inicio, aunque algunas todavía no se usan: web, JPA, Flyway, PostgreSQL, validation, Lombok, security, OAuth2 resource server, Kafka y Testcontainers. Desde C04 se usan web y security. El resource server todavía no: solo su librería de JWT, en los tests (`TestTokens`).
 - Kafka se consume con spring-kafka 4.1.2 (kafka-clients 4.2.2), por `spring-boot-starter-kafka`, con un contenedor armado por programa (C02). Las piezas que el starter crea por defecto no se conectan a nada: en el log de toda la suite no aparece `localhost:9092` (TASK-08 de C02).
 - Redis se lee con `io.lettuce:lettuce-core` directo, con la versión que maneja Spring Boot (7.5.2). En C03 reemplazó a `spring-boot-starter-data-redis`, que armaba una conexión automática a `localhost:6379` que nadie usaba (P3.2 del PLAN de C03).
 - SonarQube Cloud: organización `programacion2-ignaciomilutin-2026`, proyecto `Programacion2-IgnacioMilutin-2026_catalogo_service`. Lo dispara `.github/workflows/build.yml` en cada pull request y en cada push a `main` y `develop`. `CatalogoApplication` está excluida del cálculo de cobertura. El usuario revisa SonarQube por su cuenta: no va en los TASKS.
@@ -58,9 +59,9 @@ Slices actuales:
 | Paquete | Qué contiene |
 | --- | --- |
 | `catalogo.catedra` | Pasarela hacia la cátedra, la única puerta. La sesión técnica (X01): login técnico al arrancar, estado en memoria y renovación a pedido. El pedido del snapshot (C01): sesión, renovación ante un `401`, reintentos y validación de la respuesta (`GetCatalogSnapshotUseCase`). C03: la lectura de Redis (`GetCatalogMetadataUseCase` y `GetCatalogVersionChangesUseCase`, con lo común en `CatalogRedisReader`) y la espera del login inicial (`AwaitInitialTechnicalSessionUseCase`). Las reglas de cada entidad están en `CatedraEntityMapper`, que comparten el snapshot y Redis. C02: el consumo del topic del catálogo (`infrastructure/kafka`: `KafkaCatalogConsumer`, `CatalogUpdateListener` y `CatalogUpdateReader`, el único lugar del servicio que conoce Kafka), el aviso de sesión habilitada que dan los dos casos de uso del login (`TechnicalIntegrationListener`), y la entrega del aviso ya validado (`CatalogUpdateNotice`) por `CatalogUpdateService` y `ReceiveCatalogUpdateUseCase` al puerto `CatalogUpdateHandler`, que implementa `synchronization` |
-| `catalogo.catalog` | La copia local del catálogo: categorías, profesionales, horarios semanales y el estado de sincronización (`CatalogSyncState`, una sola fila). C01: reemplazar la copia con su versión en una transacción (`ReplaceCatalogUseCase`) y registrar un fracaso (`RecordSyncFailureUseCase`). C03: aplicar una versión incremental en una transacción, comprobando las referencias (`ApplyCatalogVersionUseCase`, que devuelve `ApplyCatalogVersionResult`), leer el estado (`GetCatalogSyncStateUseCase`) y corregir un fracaso cuando el catálogo está al día (`RecordUpToDateCheckUseCase`). Más adelante, las consultas de C04 a C06 |
+| `catalogo.catalog` | La copia local del catálogo: categorías, profesionales, horarios semanales y el estado de sincronización (`CatalogSyncState`, una sola fila). C01: reemplazar la copia con su versión en una transacción (`ReplaceCatalogUseCase`) y registrar un fracaso (`RecordSyncFailureUseCase`). C03: aplicar una versión incremental en una transacción, comprobando las referencias (`ApplyCatalogVersionUseCase`, que devuelve `ApplyCatalogVersionResult`), leer el estado (`GetCatalogSyncStateUseCase`) y corregir un fracaso cuando el catálogo está al día (`RecordUpToDateCheckUseCase`). C04, la primera entrada web del servicio (`GET /api/professional-categories`): `ProfessionalCategoryController`, `ProfessionalCategoryService`, `GetAllProfessionalCategoriesUseCase` (sin versión local lanza `CatalogNotInitializedException`, que extiende la base del slice, `CatalogException`), `ProfessionalCategoryResponse` con su `ProfessionalCategoryDtoMapper`, y `ProfessionalCategoryRepository.findAllOrderedByName()`. Más adelante, C05 y C06 |
 | `catalogo.synchronization` | El proceso de sincronización. C01: la sincronización completa (`SynchronizeFullCatalogUseCase`, `SynchronizationService`) y la regla de una sola sincronización a la vez (`SynchronizationLock`). C03: la verificación periódica (`VerifyCatalogVersionUseCase`, que devuelve `VerificationResult`) y su disparador (`infrastructure/scheduling/CatalogVerificationScheduler`). C02: la sincronización incremental por un aviso (`SynchronizeCatalogIncrementallyUseCase`, que devuelve `IncrementalSyncResult`), los avisos procesados (`ProcessedEvent`, con su persistencia propia, tabla `processed_events`), la espera del candado (`SynchronizationLock.acquire`) y el adaptador `infrastructure/gateway/CatalogUpdateHandlerAdapter`, que recibe los avisos de `catedra`. El procedimiento para ponerse al día con Redis lo comparten C03 y C02: `application/support/CatalogCatchUp`, que devuelve `CatchUpResult`. Más adelante, C07 |
-| `catalogo.config` | Configuración transversal, sin lógica de negocio: `ClockConfig` y `SchedulingConfig` (`@EnableScheduling`) |
+| `catalogo.config` | Configuración transversal, sin lógica de negocio: `ClockConfig`, `SchedulingConfig` (`@EnableScheduling`) y, desde C04, `SecurityConfig` (las rutas públicas) y `ApiExceptionHandler` (el formato de los errores, decisión 005) |
 
 Estructura decidida en C01 (decisión 002): la copia local va en un solo slice, `catalog`, porque las tres entidades se escriben siempre juntas por versión, se referencian entre sí y se leen juntas; el proceso va en `synchronization`. Dependencias en un solo sentido: `synchronization` usa `catedra` y `catalog`; `catalog` y `catedra` no usan a nadie. `synchronization` es una fachada (skill §9): su caso de uso recibe directamente los puertos de entrada de los otros dos y trabaja con sus modelos de dominio (P2 del PLAN de C01). Desde C02, además, tiene su propia persistencia (los avisos procesados, decisión de P3 del PLAN de C02), y recibe los avisos de Kafka por un puerto de salida de `catedra` que implementa su adaptador `infrastructure/gateway`: el aviso nace en `catedra` y va contra la flecha de las dependencias, así que `catedra` declara la interfaz y no sabe quién la cumple (decisión 004). La dependencia sigue siendo `synchronization` → `catedra`. No hay slice `turnos`: catálogo nunca llama a turnos; el endpoint que consume turnos (C06) va en `catalog`.
 
@@ -115,7 +116,14 @@ No son excepciones: la persistencia propia de `synchronization` (molde de la ski
 
 No son excepciones: la fachada de `synchronization` (opción de la skill §9), `@Transactional` en los casos de uso de `catalog` (la skill no lo prohíbe en `application`) y las tres entidades en `catalog` (opción "unir slices", decisión 002). Los repositorios de `catalog` suman métodos fuera del CRUD (`saveAll` actualiza o inserta por `id`; `deleteAllExcept` quita lo que no está en una lista; `findAllByIds` lee por ids, desde C03).
 
-Un resultado que otro slice necesita leer va como resultado sellado en el dominio del slice que lo produce, no como excepción: la fachada solo puede usar el dominio y los puertos de entrada de los otros slices (lo que se aprendió en C03).
+Autorizadas para C04 (P7 de su PLAN):
+
+- Un `@RestControllerAdvice` global, `ApiExceptionHandler` (decisión 005).
+- La ruta `/api/professional-categories` en lugar del `/{entities}` de la skill, porque la fija el contrato §1.
+
+No son excepciones: `SecurityConfig` y `ApiExceptionHandler` en `catalogo.config` (dentro de la excepción de X01), `CatalogException` (vuelve como la pide la skill), el mapper web sin `toDomain` (la skill, §8, deja afuera lo que no se usa) y la colación de `V3` (es de la base; la skill no habla de migraciones).
+
+Un resultado que otro slice necesita leer va como resultado sellado en el dominio del slice que lo produce, no como excepción: la fachada solo puede usar el dominio y los puertos de entrada de los otros slices (lo que se aprendió en C03). Cuándo un resultado sellado y cuándo una excepción, con la tabla de dónde se usa cada uno: decisión 006.
 
 ### Comentarios y nombres en el código
 
@@ -190,6 +198,35 @@ Un resultado que otro slice necesita leer va como resultado sellado en el domini
 - Lo que viene del mensaje va al log recortado a 100 caracteres y con `?` en lugar de cada carácter de control (`CatalogUpdateReader.forLog`). El `eventId` validado no tiene caracteres de control, así que se puede escribir en cualquier log.
 - Al apagar, el contenedor deja terminar el aviso en curso: no interrumpe su hilo. Si quedó sin aplicar, lo cubre la verificación del arranque siguiente (P6 de C02, ajustado en la tanda 6).
 - Las pruebas contra el Kafka real nunca usan el consumer group del servicio y las corre el usuario.
+
+### Seguridad (desde C04)
+
+- `config/SecurityConfig`:
+  - sin sesión (`STATELESS`), así que ninguna respuesta lleva cookie;
+  - una sola lista de rutas públicas, `PUBLIC_ENDPOINTS`, hoy solo `GET /api/professional-categories`;
+  - todo lo demás exige autenticación, que todavía no tiene mecanismo, así que se rechaza con `403` sin cuerpo (comprobado con el servidor real, TASK-06 y TASK-11 de C04);
+  - CSRF queda como viene: solo controla los métodos que cambian datos, y el contrato de catálogo solo tiene `GET`.
+- Para hacer pública una ruta (C05): sumarla a `PUBLIC_ENDPOINTS` con su método, y quitar su caso de `ProfessionalCategoriesIntegrationTest.anyOtherRouteWithoutAuthenticationIsRejectedWithoutData`.
+- Nadie lee el encabezado `Authorization`: en las rutas públicas se ignora, sea válido o no (CA-05 de C04).
+- **Para la validación del JWT** (va después de C05):
+  - El filtro del resource server rechaza con `401` un token inválido aunque la ruta sea pública: lo mostró la prueba en negativo de TASK-05 de C04. Hace falta que no busque el token en las rutas públicas, como turnos (un lector del token que use la misma lista).
+  - Ahí se definen también los `401` y `403` en `problem+json`, la clave pública de turnos y CORS (D5 de C04).
+  - Sin token, los rechazos pasarán de `403` a `401`: hay que actualizar el test de las otras rutas. `TestTokens` ya arma los tokens de prueba.
+- Antes de C04, sin configuración, Spring Boot respondía `401` con `WWW-Authenticate: Basic` y una cookie `JSESSIONID`, sin un usuario generado: el resource server en el classpath lo impide (TASK-04 de C04).
+
+### Cómo responde un error (desde C04)
+
+- El controller atrapa las excepciones de su slice y lanza `ResponseStatusException` con el estado, y el código en `getBody().setProperty("code", …)`. Por ejemplo, `ProfessionalCategoryController` convierte `CatalogNotInitializedException` en `503` `CATALOG_NOT_INITIALIZED`.
+- `config/ApiExceptionHandler` (decisión 005) hereda de `ResponseEntityExceptionHandler`, que da `problem+json` a esas excepciones y a los errores de Spring. Además atrapa cualquier otro error: escribe `Unexpected error` en el log con la traza y responde `500` `INTERNAL_ERROR` con un texto fijo. No importa nada de los slices.
+- **Ningún error puede llegar a la página interna `/error`:** la seguridad también revisa ese reenvío, y con lo no público cerrado la app recibiría `403` en lugar de `500`. Se comprobó con el servidor real, quitando la captura del manejador (TASK-07 y TASK-09 de C04). `@WebMvcTest` no hace ese reenvío: los estados de error se prueban también con la aplicación levantada.
+- Cuándo un resultado sellado y cuándo una excepción: decisión 006.
+
+### El orden de las categorías (desde C04)
+
+- La migración `V3` crea la colación `spanish_insensitive` (ICU, `es-u-ks-level1`, no determinística) y se la asigna a `professional_categories.name`. Un `ORDER BY name` ordena en español: sin mayúsculas ni tildes, y con la ñ después de la n; el `id` desempata (D2 y P3 de C04). `findAllOrderedByName()` usa `findAllByOrderByNameAscIdAsc()`.
+- **Efecto al comparar:** la columna considera iguales "optica" y "Óptica". Hoy nadie compara categorías por nombre; una consulta nueva que lo haga tiene que tenerlo en cuenta.
+- Necesita ICU en PostgreSQL. La imagen `postgres:18` lo trae.
+- `V3` ya está aplicada en la base de desarrollo (2026-11-20): no se modifica, ni siquiera un comentario, porque Flyway compara la suma de control de cada migración aplicada al arrancar.
 
 ### Lo comprobado con la cátedra real
 
@@ -273,6 +310,13 @@ Con una variable presente pero vacía (comprobado en TASK-16 de C03):
 - `TechnicalIntegrations` (`src/test/java/catalogo/catedra/`): integraciones de ejemplo, completas o sin un dato.
 - `ScriptedLoginClient` (junto a los tests de los casos de uso de `catedra`): cliente de login falso que responde en orden y cuenta las llamadas. `MutableClock` (`src/test/java/catalogo/`): reloj que el test adelanta.
 - Integración con la aplicación completa: clases `*IntegrationTest` con `@SpringBootTest` e `@Import(TestcontainersConfiguration.class)`, con la cátedra simulada configurada por `@DynamicPropertySource`. Un escenario por clase cuando cada uno necesita su propia configuración de la aplicación; varios en una clase si comparten la configuración y cada uno revisa su propio log (`FullSynchronizationIntegrationTest`).
+- Integración por HTTP (desde C04): `@SpringBootTest(webEnvironment = RANDOM_PORT)` con `@AutoConfigureRestTestClient` y `RestTestClient`, que vienen con `spring-boot-starter-webmvc-test` (`ProfessionalCategoriesIntegrationTest`). Si un test cuenta los pedidos a la cátedra simulada, espera antes el login del arranque, que corre en otro hilo.
+- Tests web: `@WebMvcTest(Controller.class)` con `@Import({SecurityConfig.class, …DtoMapper.class})` y el service con `@MockitoBean` (`ProfessionalCategoryControllerTest`). `@WebMvcTest` incluye los `@ControllerAdvice`, como `ApiExceptionHandler`, pero no las `@Configuration`: por eso se importa la seguridad. No hace el reenvío a `/error` de un servidor real.
+- `CatalogTables.insertCategory` e `initializeAt(versión)`: preparan la copia con SQL directo.
+- `TestTokens` (`src/test/java/catalogo/`): tokens de usuario firmados con una clave RSA que se genera en cada corrida (válido, vencido y alterado), con nimbus-jose-jwt, que trae el resource server. Quedan para la validación del JWT.
+- Falla de la base a pedido: renombrar una tabla y restaurarla en un `finally`, y comprobar después de cada caso que las tablas siguen con su nombre. Para una sincronización a medias, una conexión propia del `DataSource` sin confirmación automática (`ProfessionalCategoriesDatabaseIntegrationTest`).
+- Para ver un log del arranque en una clase cuya configuración comparte otra: `@DirtiesContext(classMode = BEFORE_CLASS)`. Sin eso, Spring reutiliza el contexto ya arrancado y el log del arranque no se ve (`ProfessionalCategoriesWithoutCatedraIntegrationTest`).
+- Base detenida (`ProfessionalCategoriesDatabaseDownIntegrationTest`): un `PostgreSQLContainer` propio, conectado por `@DynamicPropertySource` y sin `TestcontainersConfiguration`; `spring.datasource.hikari.connection-timeout` bajado, en milisegundos (`2000`); y `@DirtiesContext`. Con la base detenida hay dos caminos, y los dos dan `500`: la conexión recién usada se entrega sin comprobar y falla en el acto, y el pedido siguiente espera al pool hasta su tiempo.
 - E2E: paquete `e2e` (`src/test/java/e2e/`), clases con `@Tag("e2e")` y `@EnabledIf("e2e.E2ECredentials#available")`: corren solo con `-Pe2e` y se saltean sin las tres credenciales de la cátedra en el `.env`. Usan una base descartable de Testcontainers y la cátedra real, y comprueban solo lo que hace este servicio. Para probar el perfil sin llamar a la cátedra: `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>` (la propiedad de la línea de comandos le gana a la del perfil; comprobado con `help:evaluate`). El E2E de C02 (`IncrementalSynchronizationE2ETest`) exige además `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` terminada en `-e2e` (`E2ECredentials.kafkaAvailable`) y nunca usa el grupo del servicio: mueve la posición de su grupo de pruebas al último aviso retenido para no esperar el próximo, y lo entrega dos veces.
 - La salida se captura por método (`OutputCaptureExtension`): un log que salió durante otro método de la misma clase no se ve. Si un test mira el log de algo que ocurre una sola vez, como el login del arranque, la clase tiene un solo método.
 - Para contar los tests de una corrida, usar los reportes XML (`target/surefire-reports/TEST-*.xml`), siempre después de `clean`: sin él quedan reportes de tests que ya no existen.
@@ -283,6 +327,6 @@ Con una variable presente pero vacía (comprobado en TASK-16 de C03):
 ## Documentación del servicio
 
 - `docs/`: copias de los casos de uso, los contratos, el dominio y las secuencias. La fuente de verdad está en el repositorio `documentacion`. `contratos_comunes.md` y el caso de uso X01 tienen que ser idénticos en los tres repositorios: compararlos al empezar cada SPEC.
-- `docs/sdd/<id>-<nombre-corto>/`: SPEC, PLAN y TASKS de cada funcionalidad. Hechas: `x01-cuenta-tecnica`, `c01-sincronizacion-completa`, `c03-verificacion-periodica` y `c02-sincronizacion-incremental`.
-- `docs/decisiones/NNN-titulo.md`: textos de las decisiones complejas. `001`: sesión técnica con la cátedra. `002`: la copia local del catálogo en un solo slice. `003`: qué guarda el estado de sincronización y cuándo cambia. `004`: el aviso de Kafka, dónde se recibe y cómo llega a `synchronization`.
+- `docs/sdd/<id>-<nombre-corto>/`: SPEC, PLAN y TASKS de cada funcionalidad. Hechas: `x01-cuenta-tecnica`, `c01-sincronizacion-completa`, `c03-verificacion-periodica`, `c02-sincronizacion-incremental` y `c04-listar-categorias`.
+- `docs/decisiones/NNN-titulo.md`: textos de las decisiones complejas. `001`: sesión técnica con la cátedra. `002`: la copia local del catálogo en un solo slice. `003`: qué guarda el estado de sincronización y cuándo cambia. `004`: el aviso de Kafka, dónde se recibe y cómo llega a `synchronization`. `005`: el manejador global de errores, qué hace y por qué existe. `006`: cuándo se usa un resultado sellado y cuándo una excepción.
 - El `README.md` lo escribe el usuario.

@@ -1,6 +1,6 @@
 # TASKS: C04 — Listar categorías
 
-SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tandas 1 a 5: TASK-01 a TASK-09, autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tandas 1 a 7: TASK-01 a TASK-12, autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C02 eran 492, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la aplicación en la prueba manual de TASK-11, que se corre con la integración apagada.
 
@@ -125,25 +125,48 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 5 · Regresión y prueba manual
 
-- [ ] **TASK-10 · Regresión completa**
+- [x] **TASK-10 · Regresión completa**
   - Alcance: ninguno en el código.
   - Depende de: TASK-01 a TASK-09
   - Resuelve: todos los CA en conjunto; la regresión de X01, C01, C02 y C03
   - Validación: `./mvnw clean verify` en verde; el conteo de tests en los XML, igual a la línea base más los nuevos; la cobertura de JaCoCo de las clases nuevas; los chequeos de la skill (§12, del 1 al 5), con los imports entre slices sin cambios.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 6, autorizada ese día).
+    - `./mvnw -q clean verify`: 522 tests en 70 clases, 0 fallos ni errores, 137 s. Es la línea base de 492 más 30 nuevos: 2 de adaptadores, 3 del mapper web, 10 del controller, 10 de `ProfessionalCategoriesIntegrationTest`, 3 de `ProfessionalCategoriesDatabaseIntegrationTest`, 1 de `ProfessionalCategoriesWithoutCatedraIntegrationTest` y 1 de `ProfessionalCategoriesDatabaseDownIntegrationTest`.
+    - Cobertura de JaCoCo (`target/site/jacoco/jacoco.xml`): total, 97,0 % de líneas (1441/1486) y 93,4 % de ramas (481/515); al cerrar C02, 96,9 % y 93,3 %. Las clases nuevas o tocadas, al 100 % de líneas y de ramas: `SecurityConfig`, `ApiExceptionHandler`, `ProfessionalCategoryController`, `ProfessionalCategoryDtoMapper`, `ProfessionalCategoryService`, `GetAllProfessionalCategoriesUseCaseImpl`, `CatalogException`, `CatalogNotInitializedException` y `JpaProfessionalCategoryRepositoryAdapter`. `ProfessionalCategoryResponse` no cuenta líneas, porque todo su código lo genera Lombok.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices, todos de la fachada y el gateway de `synchronization`, ya autorizados; ningún paquete vacío.
 
-- [ ] **TASK-11 · Prueba manual con la aplicación**
+- [x] **TASK-11 · Prueba manual con la aplicación**
   - Alcance: con el OK del usuario, que ve el comando antes. Anotar cómo estaba el compose; levantar la base de desarrollo si hacía falta; correr la aplicación con `CATALOGO_CATEDRA_BASE_URL` vacía y `CATALOGO_VERIFICATION_ENABLED=false` en el entorno del comando, para no llamar a la cátedra real; pedir la lista con `curl -i`, sin encabezado y con un `Authorization` inventado. Después, la aplicación detenida y el compose como estaba.
   - Depende de: TASK-10
   - Resuelve: comprobación real de RF-01 a RF-03 y de `V3` sobre una base con datos
   - Validación: el log del arranque con el warning de "sin integración" y Flyway aplicando `V3` sobre una base con `V1` y `V2`; la respuesta real (`200` con las categorías ya sincronizadas, en el orden de D2, o `503` si esa base no tiene versión local), igual con y sin el encabezado. Se registran los comandos y lo observado, sin valores del `.env`.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 6). La corrió el usuario en su terminal, con los comandos que se le pasaron. Claude leyó el log y las respuestas, que quedaron en `target/`, revisando antes que no tuvieran valores sensibles (la palabra "password" aparece solo como nombre de propiedad), y después los borró.
+    - Estado previo: el compose de catálogo sin contenedores, ni corriendo ni detenidos; el volumen `catalog_service_catalog-db-data` existía.
+    - Comandos: `docker compose up -d --wait catalog-db`; `CATALOGO_CATEDRA_BASE_URL= CATALOGO_CATEDRA_USERNAME= CATALOGO_CATEDRA_PASSWORD= CATALOGO_VERIFICATION_ENABLED=false CATALOGO_CATEDRA_KAFKA_ENABLED=false ./mvnw spring-boot:run` en segundo plano; tres `curl -i`; `kill` del proceso que escuchaba en el puerto; `docker compose down`, sin `-v`.
+    - Arranque: warning `Technical login disabled: missing configuration properties [catalogo.catedra.base-url, catalogo.catedra.username, catalogo.catedra.password]`, y el `ERROR` de X01 "configuration error, no retries until restart": ningún pedido a la cátedra real. `Tomcat started on port 8081`; arrancó en 3,0 s.
+    - **La base de desarrollo estaba vacía** (`Current version of schema "public": << Empty Schema >>`), así que Flyway aplicó `V1`, `V2` y `V3` desde cero. Desde esta prueba, esa base tiene el esquema en `v3`, sin datos.
+    - `GET /api/professional-categories`, sin encabezado y con `Authorization: Bearer inventado`: las dos respuestas idénticas, `503` con `Content-Type: application/problem+json` y `{"detail":"The catalog has not been initialized yet","instance":"/api/professional-categories","status":503,"title":"Service Unavailable","code":"CATALOG_NOT_INITIALIZED"}`. Ninguna respuesta trae `Set-Cookie`: sin sesión, a diferencia de la seguridad por defecto observada en TASK-04.
+    - `GET /api/professionals` sin autenticación: `403` sin cuerpo (`Content-Length: 0`).
+    - Al detenerla: "Graceful shutdown complete"; Maven terminó con `exit code 143`, que corresponde a `SIGTERM`, el `kill` esperado, no a una falla.
+    - No se pudo observar en esta prueba: el `200` con datos reales, porque la base estaba vacía (lo cubren CA-01, CA-02 y CA-07 en integración), ni `V3` sobre una base existente. Esto último se comprobó aparte, en un PostgreSQL 18 descartable: con `V1`, `V2` y datos cargados (cinco categorías con tildes, ñ y un empate, y un profesional que referencia una), aplicar `V3` dejó las 5 filas iguales, la referencia intacta, el orden Nutrición, Ñandú, Óptica (3), optica (5), pediatría, y la columna con la colación `spanish_insensitive`. El contenedor se detuvo.
 
 ## Etapa 6 · Cierre
 
-- [ ] **TASK-12 · Documentación del servicio**
+- [x] **TASK-12 · Documentación del servicio**
   - Alcance: el `CLAUDE.md`: el slice `catalog` con C04; `catalogo.config` con `SecurityConfig` y `ApiExceptionHandler`; las excepciones de C04 (P7); cómo se agrega una ruta pública y cómo responde un error; la colación de `name` y su efecto al comparar; las clases de test nuevas y `TestTokens`; las decisiones 005 y 006 en la lista; la carpeta `c04-listar-categorias` entre las hechas. Este `TASKS.md` con lo observado.
   - Depende de: TASK-11
   - Resuelve: cierre de C04
   - Validación: las rutas y los nombres citados existen (comprobado con `ls` o `grep`); las copias de `contratos_comunes.md` y de X01 siguen idénticas en los tres repositorios.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 7, autorizada ese día). El `CLAUDE.md` suma:
+    - en "Comandos", C04 en la lista de lo comprobado y la forma de correr la aplicación sin la integración con la cátedra (TASK-11);
+    - en "Datos del proyecto", qué dependencias se usan desde C04;
+    - en la tabla de slices, la entrada web de `catalog` y las dos piezas nuevas de `catalogo.config`;
+    - las excepciones a la skill de C04 (P7) y lo que no es excepción;
+    - tres secciones nuevas: "Seguridad (desde C04)", con lo que hereda la validación del JWT; "Cómo responde un error (desde C04)", con el reenvío a `/error` comprobado; y "El orden de las categorías (desde C04)", con el efecto de la colación al comparar y que `V3` ya no se toca;
+    - en "Tests", las técnicas nuevas: integración por HTTP, `@WebMvcTest`, `CatalogTables`, `TestTokens`, falla de la base a pedido, `@DirtiesContext(BEFORE_CLASS)` y la base detenida;
+    - en la lista de documentos, la carpeta de C04 y las decisiones 005 y 006.
+    - Comprobación: los 26 nombres de clases, métodos, constantes y propiedades citados existen en `src` (`grep`), y existen las decisiones 005 y 006, la carpeta de C04 y `V3`. Las copias de `contratos_comunes.md`, del caso de uso X01 y de su secuencia son idénticas en los tres repositorios (`md5sum`), y las de catálogo (casos de uso, contrato, dominio y secuencia) coinciden con `documentacion` (`cmp`).
+
+## Cierre
+
+C04 terminado el 2026-11-20: TASK-01 a TASK-12 hechas y validadas. `./mvnw clean verify`: 522 tests en 70 clases, 0 fallos; cobertura del 97,0 % de líneas y 93,4 % de ramas. Quedan para la validación del JWT (después de C05) los puntos anotados en la SPEC ("Para la validación del JWT") y en la sección "Seguridad" del `CLAUDE.md`. Ajustes aprobados durante la implementación: la etapa 1 del PLAN pasó a TASK-04, y los escenarios de TASK-07 pasaron a su propia clase.
