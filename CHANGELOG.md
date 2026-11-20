@@ -95,3 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Ahora cuando falla la aplicar una version del catalogo (slice 'Catalog') devuelve un record de resultado. Esto para poder obtentener esoe resultado en la fachada 'Syncornization'.}
 - Ahora la actualizacion de la version esta en un archivo catchUp para que la sincronizacion incremental tambien lo pueda utilizar. En slice 'Synchronization'.
+
+## 2026-11-20
+### Added 
+- Caso de uso de la sincronizacion incremental en slice 'Synchronization', con sus tests.

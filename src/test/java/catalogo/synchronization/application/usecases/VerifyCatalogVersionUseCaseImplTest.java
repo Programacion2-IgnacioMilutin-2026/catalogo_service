@@ -23,11 +23,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// La verificación de la versión del catálogo: espera el login, se omite si hay otra sincronización, y traduce lo que
-// hizo la pieza común. Lo que hace la pieza se prueba en CatalogCatchUpTest.
+// La verificación de la versión del catálogo.
 @ExtendWith(OutputCaptureExtension.class)
 class VerifyCatalogVersionUseCaseImplTest {
 
@@ -70,7 +70,8 @@ class VerifyCatalogVersionUseCaseImplTest {
     }
 
     @Test
-    void theVerificationUsesTheCatchUpWithItsNameAndTranslatesEachResult(CapturedOutput output) {
+    void theVerificationUsesTheCatchUpWithItsNameAndTranslatesEachResult(CapturedOutput output)
+            throws InterruptedException {
         localVersion(59);
         assertThat(useCase().verifyCatalogVersion()).isEqualTo(new VerificationResult.UpToDate(59));
         assertThat(output).contains("Catalog verification: up to date at version 59");
@@ -83,7 +84,15 @@ class VerifyCatalogVersionUseCaseImplTest {
                 .startsWith("SOURCE_UNAVAILABLE");
         assertThat(output).contains("Catalog verification failed with SOURCE_UNAVAILABLE");
 
-        assertThat(lock.tryAcquire()).isTrue();
+        AtomicBoolean free = new AtomicBoolean();
+        Thread other = Thread.ofVirtual().start(() -> {
+            free.set(lock.tryAcquire());
+            if (free.get()) {
+                lock.release();
+            }
+        });
+        other.join(5000);
+        assertThat(free).isTrue();
     }
 
     private VerifyCatalogVersionUseCaseImpl useCase() {
