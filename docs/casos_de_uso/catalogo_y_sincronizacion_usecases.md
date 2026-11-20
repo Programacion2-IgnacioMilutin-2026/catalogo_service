@@ -39,7 +39,7 @@
 
 | **NOMBRE** | C04 — Listar categorías |
 | --- | --- |
-| **Actor principal** | Aplicación KMP1 |
+| **Actor principal** | Aplicación KMP |
 | **Actor secundario** | Ninguno |
 | **Descripción** | Devuelve a la app, sin requerir sesión, todas las categorías de profesionales de la copia local (habilitadas y deshabilitadas) con su estado, para que la app decida cómo presentarlas y las use como filtro de la búsqueda (C05). Es un endpoint expresamente público. Solo lee la copia local y nunca consulta a la cátedra. Si la solicitud incluye un JWT, sea válido o inválido, el servicio no lo valida ni lo usa: el caso es público y no depende de la identidad del usuario. |
 | **Alcance** | Servicio de catálogo y sincronización |
