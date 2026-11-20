@@ -1,50 +1,26 @@
 package catalogo.synchronization.application.usecases;
 
-import catalogo.catalog.domain.model.ApplyCatalogVersionResult;
-import catalogo.catalog.domain.model.Professional;
-import catalogo.catalog.domain.model.ProfessionalCategory;
-import catalogo.catalog.domain.model.SyncErrorType;
-import catalogo.catalog.domain.model.WeeklySchedule;
-import catalogo.catalog.domain.ports.in.ApplyCatalogVersionUseCase;
-import catalogo.catalog.domain.ports.in.GetCatalogSyncStateUseCase;
-import catalogo.catalog.domain.ports.in.RecordSyncFailureUseCase;
-import catalogo.catalog.domain.ports.in.RecordUpToDateCheckUseCase;
-import catalogo.catedra.domain.model.CatalogMetadata;
-import catalogo.catedra.domain.model.CatalogMetadataResult;
-import catalogo.catedra.domain.model.CatalogVersionChanges;
-import catalogo.catedra.domain.model.CatalogVersionChangesResult;
 import catalogo.catedra.domain.ports.in.AwaitInitialTechnicalSessionUseCase;
-import catalogo.catedra.domain.ports.in.GetCatalogMetadataUseCase;
-import catalogo.catedra.domain.ports.in.GetCatalogVersionChangesUseCase;
+import catalogo.synchronization.application.support.CatalogCatchUp;
 import catalogo.synchronization.application.support.SynchronizationLock;
-import catalogo.synchronization.domain.model.FullSyncResult;
-import catalogo.synchronization.domain.model.VerificationPolicy;
+import catalogo.synchronization.domain.model.CatchUpResult;
 import catalogo.synchronization.domain.model.VerificationResult;
-import catalogo.synchronization.domain.ports.in.SynchronizeFullCatalogUseCase;
 import catalogo.synchronization.domain.ports.in.VerifyCatalogVersionUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.util.List;
-
-// Verificación periódica. Compara la versión local con la de Redis y la pone al día. Fachada, utiliza puertos de Catedra y Catalog.
+// Verificación periódica. Compara la versión local con la de Redis y la pone al día.
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class VerifyCatalogVersionUseCaseImpl implements VerifyCatalogVersionUseCase {
 
+    private static final String LOG_NAME = "Catalog verification";
+
     private final SynchronizationLock synchronizationLock;
     private final AwaitInitialTechnicalSessionUseCase awaitInitialTechnicalSessionUseCase;
-    private final GetCatalogSyncStateUseCase getCatalogSyncStateUseCase;
-    private final SynchronizeFullCatalogUseCase synchronizeFullCatalogUseCase;
-    private final GetCatalogMetadataUseCase getCatalogMetadataUseCase;
-    private final GetCatalogVersionChangesUseCase getCatalogVersionChangesUseCase;
-    private final ApplyCatalogVersionUseCase applyCatalogVersionUseCase;
-    private final RecordSyncFailureUseCase recordSyncFailureUseCase;
-    private final RecordUpToDateCheckUseCase recordUpToDateCheckUseCase;
-    private final VerificationPolicy verificationPolicy;
+    private final CatalogCatchUp catalogCatchUp;
 
     @Override
     public VerificationResult verifyCatalogVersion() {
@@ -54,187 +30,13 @@ public class VerifyCatalogVersionUseCaseImpl implements VerifyCatalogVersionUseC
             return new VerificationResult.Skipped();
         }
         try {
-            if (!getCatalogSyncStateUseCase.getCatalogSyncState().isInitialized()) {
-                log.info("Catalog verification: no local version, requesting the full synchronization");
-                return afterFullSynchronization();
-            }
-            return pass(false);
+            return switch (catalogCatchUp.catchUp(LOG_NAME)) {
+                case CatchUpResult.UpToDate upToDate -> new VerificationResult.UpToDate(upToDate.localVersion());
+                case CatchUpResult.Updated updated -> new VerificationResult.Updated(updated.localVersion());
+                case CatchUpResult.Failed failed -> new VerificationResult.Failed(failed.reason());
+            };
         } finally {
             synchronizationLock.release();
         }
-    }
-
-    // Una pasada, lee la metadata, compara y aplica lo que falta.
-    private VerificationResult pass(boolean afterFull) {
-        long localVersion = getCatalogSyncStateUseCase.getCatalogSyncState().getLocalVersion();
-        return switch (getCatalogMetadataUseCase.getCatalogMetadata()) {
-            case CatalogMetadataResult.Unavailable unavailable ->
-                    fail(SyncErrorType.SOURCE_UNAVAILABLE, unavailable.reason());
-            case CatalogMetadataResult.Rejected rejected -> fail(SyncErrorType.INTEGRATION_REJECTED, rejected.reason());
-            case CatalogMetadataResult.Invalid invalid -> discontinuity(afterFull, invalid.reason());
-            case CatalogMetadataResult.Obtained obtained -> compare(localVersion, obtained.metadata(), afterFull);
-        };
-    }
-
-    private VerificationResult compare(long localVersion, CatalogMetadata metadata, boolean afterFull) {
-        if (localVersion == metadata.currentVersion()) {
-            return upToDate(localVersion);
-        }
-        if (localVersion < metadata.oldestAvailableVersion() || localVersion > metadata.currentVersion()) {
-            return discontinuity(afterFull, "local version " + localVersion + " is outside the available history "
-                    + metadata.oldestAvailableVersion() + " to " + metadata.currentVersion());
-        }
-        log.info("Catalog verification: local version {} is behind the current version {}", localVersion,
-                metadata.currentVersion());
-        return applyPendingVersions(localVersion, metadata.currentVersion(), afterFull);
-    }
-
-    private VerificationResult applyPendingVersions(long localVersion, long currentVersion, boolean afterFull) {
-        for (long version = localVersion + 1; version <= currentVersion; version++) {
-            VerificationResult failure = switch (getCatalogVersionChangesUseCase.getCatalogVersionChanges(version)) {
-                case CatalogVersionChangesResult.Unavailable unavailable ->
-                        fail(SyncErrorType.SOURCE_UNAVAILABLE, unavailable.reason());
-                case CatalogVersionChangesResult.Rejected rejected ->
-                        fail(SyncErrorType.INTEGRATION_REJECTED, rejected.reason());
-                case CatalogVersionChangesResult.Invalid invalid -> discontinuity(afterFull, invalid.reason());
-                case CatalogVersionChangesResult.Obtained obtained -> apply(obtained.changes(), afterFull);
-            };
-            if (failure != null) {
-                return failure;
-            }
-        }
-        log.info("Catalog verification applied versions {} to {}: local version {}", localVersion + 1, currentVersion,
-                currentVersion);
-        return new VerificationResult.Updated(currentVersion);
-    }
-
-    private VerificationResult apply(CatalogVersionChanges changes, boolean afterFull) {
-        int maxAttempts = verificationPolicy.persistenceMaxAttempts();
-        String lastFailure = "";
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            if (!waitBefore(attempt)) {
-                return fail(SyncErrorType.PERSISTENCE_FAILURE, "Interrupted while waiting to apply version "
-                        + changes.version());
-            }
-            ApplyCatalogVersionResult result;
-            try {
-                result = applyCatalogVersionUseCase.applyCatalogVersion(changes.version(), categoriesOf(changes),
-                        professionalsOf(changes), weeklySchedulesOf(changes));
-            } catch (RuntimeException e) {
-                lastFailure = e.getClass().getSimpleName();
-                log.warn("Catalog version {} attempt {}/{} could not be applied: {}", changes.version(), attempt,
-                        maxAttempts, lastFailure);
-                continue;
-            }
-            return switch (result) {
-                case ApplyCatalogVersionResult.Applied applied -> {
-                    log.info("Catalog version {} applied: {} categories, {} professionals, {} weekly schedules",
-                            applied.version(), changes.categories().size(), changes.professionals().size(),
-                            changes.weeklySchedules().size());
-                    yield null;
-                }
-                case ApplyCatalogVersionResult.NotVerifiable notVerifiable -> discontinuity(afterFull,
-                        "Catalog version " + changes.version() + " cannot be verified: " + notVerifiable.problems());
-            };
-        }
-        return fail(SyncErrorType.PERSISTENCE_FAILURE, "Catalog version " + changes.version() + " not applied after "
-                + maxAttempts + " attempts: " + lastFailure);
-    }
-
-    private VerificationResult discontinuity(boolean afterFull, String reason) {
-        if (afterFull) {
-            return fail(SyncErrorType.INVALID_DATA, "The discontinuity persists after the full synchronization: "
-                    + reason);
-        }
-        log.warn("Catalog verification found a discontinuity, requesting the full synchronization: {}", reason);
-        return afterFullSynchronization();
-    }
-
-    private VerificationResult afterFullSynchronization() {
-        return switch (synchronizeFullCatalogUseCase.synchronizeFullCatalog()) {
-            case FullSyncResult.Applied applied -> {
-                log.info("Catalog verification: full synchronization applied version {}, checking Redis once more",
-                        applied.snapshotVersion());
-                VerificationResult secondPass = pass(true);
-                yield secondPass instanceof VerificationResult.UpToDate upToDate
-                        ? new VerificationResult.Updated(upToDate.localVersion())
-                        : secondPass;
-            }
-            case FullSyncResult.Failed failed -> new VerificationResult.Failed(failed.reason());
-            case FullSyncResult.Discarded discarded -> new VerificationResult.Skipped();
-        };
-    }
-
-    private VerificationResult upToDate(long localVersion) {
-        log.info("Catalog verification: up to date at version {}", localVersion);
-        try {
-            recordUpToDateCheckUseCase.recordUpToDateCheck();
-        } catch (RuntimeException e) {
-            log.error("The up-to-date catalog verification could not be recorded: {}", e.getClass().getSimpleName());
-        }
-        return new VerificationResult.UpToDate(localVersion);
-    }
-
-    private VerificationResult fail(SyncErrorType errorType, String reason) {
-        log.warn("Catalog verification failed with {}: {}", errorType, reason);
-        try {
-            recordSyncFailureUseCase.recordSyncFailure(errorType);
-        } catch (RuntimeException e) {
-            log.error("The failed catalog verification could not be recorded: {}", e.getClass().getSimpleName());
-        }
-        return new VerificationResult.Failed(errorType + ": " + reason);
-    }
-
-    private boolean waitBefore(int attempt) {
-        Duration delay = verificationPolicy.delayBeforeAttempt(attempt);
-        if (delay.isZero()) {
-            return true;
-        }
-        try {
-            Thread.sleep(delay);
-            return true;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
-    }
-
-    // Traduce la versión a los modelos de la copia local.
-
-    private static List<ProfessionalCategory> categoriesOf(CatalogVersionChanges changes) {
-        return changes.categories().stream()
-                .map(category -> ProfessionalCategory.builder()
-                        .id(category.id())
-                        .name(category.name())
-                        .description(category.description())
-                        .enabled(category.enabled())
-                        .build())
-                .toList();
-    }
-
-    private static List<Professional> professionalsOf(CatalogVersionChanges changes) {
-        return changes.professionals().stream()
-                .map(professional -> Professional.builder()
-                        .id(professional.id())
-                        .firstName(professional.firstName())
-                        .lastName(professional.lastName())
-                        .enabled(professional.enabled())
-                        .category(ProfessionalCategory.builder().id(professional.categoryId()).build())
-                        .build())
-                .toList();
-    }
-
-    private static List<WeeklySchedule> weeklySchedulesOf(CatalogVersionChanges changes) {
-        return changes.weeklySchedules().stream()
-                .map(schedule -> WeeklySchedule.builder()
-                        .id(schedule.id())
-                        .dayOfWeek(schedule.dayOfWeek())
-                        .startTime(schedule.startTime())
-                        .endTime(schedule.endTime())
-                        .slotDurationMinutes(schedule.slotDurationMinutes())
-                        .enabled(schedule.enabled())
-                        .professional(Professional.builder().id(schedule.professionalId()).build())
-                        .build())
-                .toList();
     }
 }
