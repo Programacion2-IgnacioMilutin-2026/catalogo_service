@@ -1,6 +1,6 @@
 # TASKS: C04 — Listar categorías
 
-SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tandas 1 a 3: TASK-01 a TASK-05, autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tandas 1 a 5: TASK-01 a TASK-09, autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C02 eran 492, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la aplicación en la prueba manual de TASK-11, que se corre con la integración apagada.
 
@@ -77,33 +77,51 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 4 · La integración con la aplicación
 
-- [ ] **TASK-06 · Con la aplicación levantada y la base real**
+- [x] **TASK-06 · Con la aplicación levantada y la base real**
   - Alcance: `ProfessionalCategoriesIntegrationTest` suma escenarios: los valores salen de la copia y la cátedra simulada no recibe pedidos durante la consulta (CA-01); la respuesta en el orden de D2 (CA-02); sin versión local, con y sin categorías, `503` y las tablas sin cambios (CA-06); inicializada y sin categorías, `[]` (CA-07); y otras rutas sin autenticación, rechazadas sin datos (CA-12).
   - Depende de: TASK-04
   - Resuelve: CA-01, CA-02, CA-06, CA-07, CA-12; RF-01, RF-03, RF-04, RF-07
   - Validación: `./mvnw test -Dtest=ProfessionalCategoriesIntegrationTest` en verde, con el estado observado de CA-12 registrado (lo esperable, `403`). Prueba en negativo: el caso de uso mira si hay categorías en lugar de la versión local, y falla el escenario de CA-06 con categorías cargadas.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 4, autorizada ese día). `ProfessionalCategoriesIntegrationTest` pasa de 1 a 10 casos. Antes de cada uno espera el login del arranque, que corre en otro hilo, para que no se cuente como un pedido de la consulta.
+    - Casos nuevos: `listingReadsOnlyTheLocalCopyWithoutCallingTheCatedra` (CA-01: la cátedra simulada no recibe ningún pedido durante la consulta), `theResponseComesInSpanishAlphabeticalOrderWithTiesById` (CA-02: `id` 4, 2, 3, 5, 1, es decir Nutrición, Ñandú, Óptica, optica, pediatría), `withoutALocalVersionButWithCategoriesItAnswers503AndChangesNothing` y `withoutALocalVersionAndWithoutCategoriesItAnswers503AndChangesNothing` (CA-06: `503` `problem+json` `CATALOG_NOT_INITIALIZED`; categorías, estado y pedidos a la cátedra iguales antes y después), `anInitializedCopyWithoutCategoriesAnswersAnEmptyList` (CA-07: `[]`) y `anyOtherRouteWithoutAuthenticationIsRejectedWithoutData` (CA-12, parametrizado).
+    - `./mvnw test -Dtest=ProfessionalCategoriesIntegrationTest`: 10 tests, 0 fallos.
+    - CA-12, estado observado con el servidor real: `GET /api/professionals`, `GET /api/professionals/15`, `GET /api/synchronization/status` y `POST /api/professional-categories` sin autenticación respondieron **`403`**, sin datos de la copia.
+    - Prueba en negativo: el caso de uso con `findAllOrderedByName().isEmpty()` en lugar de `!isInitialized()`. Fallaron los dos casos que distinguen "inicializada" de "tiene categorías": CA-06 con categorías respondió `200`, y CA-07 respondió `503`. Restaurado, `sha256sum -c` coincide.
+    - Suite completa: la de TASK-07.
 
-- [ ] **TASK-07 · Fallas de la base y una sincronización abierta**
-  - Alcance: `ProfessionalCategoriesIntegrationTest` suma CA-08 (el test renombra `catalog_sync_state`, y en otro escenario `professional_categories`, y las restaura siempre al terminar) y CA-10 (el test abre su propia conexión sin confirmación automática, cambia nombres y suma una categoría, no confirma, pide la lista, confirma y la pide otra vez).
-  - Depende de: TASK-06
+- [x] **TASK-07 · Fallas de la base y una sincronización abierta**
+  - Alcance (ajustado el 2026-11-20, aprobado por el usuario al empezar la tanda 4: los escenarios van a una clase propia, para que cada tarea tenga sus archivos y su commit, y para aislar los que tocan el esquema de la base): `ProfessionalCategoriesDatabaseIntegrationTest` (nueva, sin la cátedra configurada) con CA-08 (el test renombra `catalog_sync_state`, y en otro escenario `professional_categories`, y las restaura siempre al terminar) y CA-10 (el test abre su propia conexión sin confirmación automática, cambia nombres y suma una categoría, no confirma, pide la lista, confirma y la pide otra vez).
+  - Depende de: TASK-04
   - Resuelve: CA-08, CA-10; RF-05, RF-06
-  - Validación: `./mvnw test -Dtest=ProfessionalCategoriesIntegrationTest` en verde: `500` `INTERNAL_ERROR` sin SQL, nombres de tablas o clases ni trazas, y un error en el log; con la transacción abierta, la copia anterior dentro de un tiempo máximo, y después la nueva. Una corrida completa de la clase deja las tablas con sus nombres. Prueba en negativo: la consulta de categorías con un bloqueo de lectura (`@Lock(PESSIMISTIC_READ)` en el repositorio de Spring Data, dentro de una transacción), que espera a la transacción abierta, y CA-10 falla por tiempo.
-  - Resultado: pendiente
+  - Validación: `./mvnw test -Dtest=ProfessionalCategoriesDatabaseIntegrationTest` en verde: `500` `INTERNAL_ERROR` sin SQL, nombres de tablas o clases ni trazas, y un error en el log; con la transacción abierta, la copia anterior dentro de un tiempo máximo, y después la nueva. Una corrida completa de la clase deja las tablas con sus nombres. Prueba en negativo: la consulta de categorías con un bloqueo de lectura (`@Lock(PESSIMISTIC_READ)` en el repositorio de Spring Data, dentro de una transacción), que espera a la transacción abierta, y CA-10 falla por tiempo.
+  - Resultado: 2026-11-20 (tanda 4). `ProfessionalCategoriesDatabaseIntegrationTest` (nueva) arranca con `catalogo.catedra.base-url` vacía, porque no usa la cátedra. Prepara una copia con una categoría, y después de cada caso comprueba que `catalog_sync_state` y `professional_categories` siguen con su nombre.
+    - Casos: `aFailureReadingTheSyncStateAnswers500WithoutInternalDetails` y `aFailureReadingTheCategoriesAnswers500WithoutInternalDetails` (CA-08: renombran la tabla, piden la lista y la restauran en un `finally`; `500` `problem+json` `INTERNAL_ERROR`; el cuerpo no tiene el nombre de la tabla, "relation", "does not exist", "SQL", "select" ni "Exception"; el log tiene `Unexpected error` con `InvalidDataAccessResourceUsageException` y `relation "…" does not exist`). Y `aSynchronizationNotYetConfirmedIsNotSeenAndDoesNotMakeTheListWait` (CA-10: una conexión propia sin confirmación automática cambia "Pediatría" a "Zoología" y suma "Cardiología" sin confirmar; la lista responde dentro de 5 s con solo "Pediatría"; después de confirmar, "Cardiología" y "Zoología").
+    - `./mvnw test -Dtest=ProfessionalCategoriesDatabaseIntegrationTest`: 3 tests, 0 fallos.
+    - Prueba en negativo 1: `findAllByOrderByNameAscIdAsc` con `@Lock(PESSIMISTIC_WRITE)` y `@Transactional` (un `SELECT … FOR UPDATE`). CA-10 falló con "execution timed out after 5000 ms": la lectura esperó a la sincronización abierta. Restaurado, `sha256sum -c` coincide.
+    - Prueba en negativo 2, no prevista en TASKS: `ApiExceptionHandler` sin `@ExceptionHandler(Exception.class)`, con el servidor real. Los dos casos de CA-08 recibieron **`403 Forbidden`** en lugar de `500`: el error se reenvió a `/error` y la seguridad rechazó el reenvío. Confirma el riesgo anotado en el PLAN, que `@WebMvcTest` no podía mostrar. Restaurado, `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 520 tests en 68 clases (508 + 9 de TASK-06 + 3 de TASK-07), 0 fallos ni errores, 129 s.
 
-- [ ] **TASK-08 · Sin integración con la cátedra**
+- [x] **TASK-08 · Sin integración con la cátedra**
   - Alcance: `ProfessionalCategoriesWithoutCatedraIntegrationTest` (nuevo): la aplicación sin la URL de la cátedra, que arranca sin integración, con la copia cargada con SQL directo.
   - Depende de: TASK-04
   - Resuelve: CA-11
   - Validación: `./mvnw test -Dtest=ProfessionalCategoriesWithoutCatedraIntegrationTest`: `200` con la lista, y el warning de "sin integración" en el log del arranque. Prueba en negativo: romper el código haría que `catalog` dependa de `catedra` solo para la prueba, así que se comprueba que el test distingue el resultado: con la copia sin inicializar tiene que fallar (`503` en lugar de `200`).
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 5, autorizada ese día). Creado `ProfessionalCategoriesWithoutCatedraIntegrationTest`, con `catalogo.catedra.base-url` vacía y un solo método, `theListIsServedFromTheLocalCopyWithoutTheCatedra`. Lleva `@DirtiesContext(classMode = BEFORE_CLASS)` porque `ProfessionalCategoriesDatabaseIntegrationTest` tiene la misma configuración: sin eso, Spring reutilizaría ese contexto y el warning del arranque no se vería.
+    - Corrido junto con la clase de TASK-07, que va antes: dos arranques, con el warning `Technical login disabled: missing configuration properties [catalogo.catedra.base-url, …]` en cada uno; 4 tests, 0 fallos. Responde `200` con "Kinesiología" y "Pediatría".
+    - Prueba en negativo (del test): sin `initializeAt(57)`, falló con "Status expected:<200 OK> but was:<503 SERVICE_UNAVAILABLE>". Restaurado, `sha256sum -c` coincide.
+    - Suite completa: la de TASK-09.
 
-- [ ] **TASK-09 · La base detenida**
+- [x] **TASK-09 · La base detenida**
   - Alcance: `ProfessionalCategoriesDatabaseDownIntegrationTest` (nuevo): su propio contenedor de PostgreSQL, no el compartido; el tiempo de espera del pool bajado solo en ese test; `@DirtiesContext`. El contenedor se detiene antes del pedido.
   - Depende de: TASK-04
   - Resuelve: CA-09; RF-05 (D4)
   - Validación: `./mvnw test -Dtest=ProfessionalCategoriesDatabaseDownIntegrationTest`: `500` `INTERNAL_ERROR` sin detalles internos y un error en el log, dentro del tiempo del pool. Se corre con `timeout`. Prueba en negativo: el manejador sin la captura de lo no previsto, y el test falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 5). Creado `ProfessionalCategoriesDatabaseDownIntegrationTest`: su propio `PostgreSQLContainer` (`postgres:18`), conectado con `@DynamicPropertySource`, sin la configuración compartida; `spring.datasource.hikari.connection-timeout=2000`; `@DirtiesContext`; `@Timeout(120)`. El caso confirma `200` con la base arriba, la detiene y pide la lista dos veces.
+    - La primera versión pedía una sola vez, y el log mostró que la falla no pasaba por el pool: la conexión recién usada se entregó sin comprobar y la consulta falló en el acto (`EOFException`, "An I/O error occurred while sending to the backend"), unos 25 ms después de detener la base. Se sumó un segundo pedido, para recorrer el camino que D4 había dejado deducido, y se corrigió el comentario de la clase.
+    - `./mvnw test -Dtest=ProfessionalCategoriesDatabaseDownIntegrationTest`: 1 test, 0 fallos, 13 s. Primer pedido: `500` en el acto. Segundo: `500` después de "HikariPool-1 - Connection is not available, request timed out after 2000ms" (`SQLTransientConnectionException`). Los dos en `problem+json` con `INTERNAL_ERROR`, sin detalles internos y en menos de 10 s.
+    - Prueba en negativo: el manejador sin `@ExceptionHandler(Exception.class)`. Falló con "Status expected:<500> but was:<403 FORBIDDEN>", el mismo reenvío a `/error` de TASK-07. Restaurado, `sha256sum -c` coincide.
+    - Al terminar, ningún contenedor de PostgreSQL queda corriendo (`docker ps`).
+    - `./mvnw -q clean test`: 522 tests en 70 clases (520 + 1 + 1), 0 fallos ni errores, 138 s.
 
 ## Etapa 5 · Regresión y prueba manual
 

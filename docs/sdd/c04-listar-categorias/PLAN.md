@@ -167,7 +167,7 @@ No todos requieren todos los métodos. Identifica tests existentes y separa los
 nuevos propuestos. Incluye regresiones relevantes. Una prueba con mocks no
 demuestra persistencia, transacciones ni idempotencia. -->
 
-Niveles de P6 (opción b), como turnos): un test del mapper web, un test del controller con `@WebMvcTest` (seguridad y manejador reales, service simulado, sin base), el test de adaptadores ampliado contra PostgreSQL, y tests de integración con la aplicación levantada en un puerto real (`*IntegrationTest`, PostgreSQL de Testcontainers). No hay E2E: C04 no usa la cátedra. Nombres de las clases nuevas como propuesta: `ProfessionalCategoryDtoMapperTest`, `ProfessionalCategoryControllerTest`, `ProfessionalCategoriesIntegrationTest`, `ProfessionalCategoriesWithoutCatedraIntegrationTest` y `ProfessionalCategoriesDatabaseDownIntegrationTest`.
+Niveles de P6 (opción b), como turnos): un test del mapper web, un test del controller con `@WebMvcTest` (seguridad y manejador reales, service simulado, sin base), el test de adaptadores ampliado contra PostgreSQL, y tests de integración con la aplicación levantada en un puerto real (`*IntegrationTest`, PostgreSQL de Testcontainers). No hay E2E: C04 no usa la cátedra. Nombres de las clases nuevas como propuesta: `ProfessionalCategoryDtoMapperTest`, `ProfessionalCategoryControllerTest`, `ProfessionalCategoriesIntegrationTest`, `ProfessionalCategoriesDatabaseIntegrationTest` (CA-08 y CA-10, separada al empezar la tanda 4 con el OK del usuario), `ProfessionalCategoriesWithoutCatedraIntegrationTest` y `ProfessionalCategoriesDatabaseDownIntegrationTest`.
 
 | Criterio | Método y test existente o propuesto | Entorno y datos necesarios | Evidencia prevista |
 | --- | --- | --- | --- |
@@ -195,7 +195,7 @@ En todos, la práctica acordada: después de que el test pasa, una prueba en neg
 **Prueba manual con la aplicación (última etapa, con el OK del usuario):** levantar la aplicación sobre la base de desarrollo con la integración apagada (`CATALOGO_CATEDRA_BASE_URL` vacía y `CATALOGO_VERIFICATION_ENABLED=false` en el entorno del comando, que le ganan al `.env`; el log del arranque tiene que mostrar el warning de "sin integración"), para no llamar a la cátedra real, y pedir la lista con `curl`. Comprueba que `V3` se aplica sobre una base con `V1`, `V2` y datos, y muestra la respuesta real: `200` con las categorías ya sincronizadas, o `503` si esa base no tiene versión local. Aplicar `V3` cambia el esquema de la base de desarrollo, como lo haría cualquier arranque del servicio. Después, la aplicación detenida y el compose como estaba.
 
 **Limitaciones del entorno:**
-- El caso "la base colgada al pedir una conexión" de D4 no se prueba: sigue como deducción, apoyada en lo que observó turnos (D5 de T09). CA-09 prueba la base detenida.
+- El caso "la base colgada al pedir una conexión" de D4 no se prueba: sigue como deducción, apoyada en lo que observó turnos (D5 de T09). CA-09 prueba la base detenida. **Resultado de TASK-09 (2026-11-20):** con la base detenida se comprobaron los dos caminos. La conexión abierta se corta y el `500` llega en el acto; y el pool, sin conexiones que sirvan, deja de esperar al vencer su tiempo (2 s en el test, 30 s por defecto) y responde `500`. La base en pausa sigue sin probarse.
 - `@WebMvcTest` no reproduce el reenvío a `/error` de un servidor real: por eso CA-06, CA-08 y CA-12 también se prueban con la aplicación levantada.
 - Que la imagen de Docker del servicio use un PostgreSQL con ICU se revisa en la etapa de Docker.
 
