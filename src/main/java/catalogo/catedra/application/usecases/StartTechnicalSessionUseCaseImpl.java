@@ -4,6 +4,7 @@ import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import catalogo.catedra.domain.model.TechnicalLoginResult;
 import catalogo.catedra.domain.model.TechnicalSession;
 import catalogo.catedra.domain.ports.in.StartTechnicalSessionUseCase;
+import catalogo.catedra.domain.ports.out.TechnicalIntegrationListener;
 import catalogo.catedra.domain.ports.out.TechnicalLoginClient;
 import catalogo.catedra.domain.ports.out.TechnicalSessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class StartTechnicalSessionUseCaseImpl implements StartTechnicalSessionUs
     private final TechnicalSessionRepository technicalSessionRepository;
     private final TechnicalLoginPolicy technicalLoginPolicy;
     private final Clock clock;
+    private final TechnicalIntegrationListener technicalIntegrationListener;
 
     // Nunca coinciden dos logins
     @Override
@@ -44,7 +46,10 @@ public class StartTechnicalSessionUseCaseImpl implements StartTechnicalSessionUs
                 case TechnicalLoginResult.Success success -> {
                     log.info("Technical login succeeded: groupId={}, provisioningStatus={}",
                             success.integration().groupId(), success.integration().provisioningStatus());
-                    return save(TechnicalSession.enabled(success.token(), success.integration(), clock.instant()));
+                    TechnicalSession enabled = save(TechnicalSession.enabled(success.token(), success.integration(),
+                            clock.instant()));
+                    notifyEnabled(enabled);
+                    return enabled;
                 }
                 case TechnicalLoginResult.ConfigurationError error -> {
                     log.error("Technical login configuration error, no retries until restart: {}", error.reason());
@@ -75,6 +80,14 @@ public class StartTechnicalSessionUseCaseImpl implements StartTechnicalSessionUs
     private TechnicalSession save(TechnicalSession technicalSession) {
         technicalSessionRepository.save(technicalSession);
         return technicalSession;
+    }
+
+    private void notifyEnabled(TechnicalSession session) {
+        try {
+            technicalIntegrationListener.integrationEnabled(session.integration());
+        } catch (RuntimeException e) {
+            log.error("The enabled integration could not be notified: {}", e.getClass().getSimpleName());
+        }
     }
 
     private TechnicalLoginResult loginSafely() {
