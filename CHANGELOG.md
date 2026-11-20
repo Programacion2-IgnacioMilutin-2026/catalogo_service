@@ -99,3 +99,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 2026-11-20
 ### Added 
 - Caso de uso de la sincronizacion incremental en slice 'Synchronization', con sus tests.
+- Lectura y validacion de kafka en slice 'Catedra'.
