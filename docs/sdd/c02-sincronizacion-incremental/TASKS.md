@@ -1,10 +1,10 @@
 # TASKS: C02 — Sincronizar catálogo incrementalmente
 
-SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05, autorizada el 2026-11-20).
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05, y tanda 5: TASK-07, autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 394. Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
 
-Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-02 y TASK-03; 3 = TASK-04; 4 = TASK-05; 5 = TASK-06 y TASK-07; 6 = TASK-08; 7 = TASK-09 y TASK-10; 8 = TASK-11 y TASK-12; 9 = TASK-13; 10 = TASK-14 (usuario); 11 = TASK-15.
+Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-02 y TASK-03; 3 = TASK-04; 4 = TASK-05; 5 = TASK-07; 6 = TASK-06 y TASK-08 (reordenado el 2026-11-20 y avisado al usuario: TASK-06 agrega a los casos de uso del login un puerto que recién implementa TASK-08, y sola dejaría la aplicación sin arrancar); 7 = TASK-09 y TASK-10; 8 = TASK-11 y TASK-12; 9 = TASK-13; 10 = TASK-14 (usuario); 11 = TASK-15.
 
 ## Etapa 1 · La pieza común (sin cambio de comportamiento)
 
@@ -82,12 +82,16 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Validación: unitarios de los dos casos de uso: avisan una vez con la integración cuando la sesión queda habilitada, y no avisan si queda degradada, con error de configuración o sin integración completa; los tests existentes de X01 siguen en verde sin cambiar lo que comprueban. `./mvnw test` en verde.
   - Resultado: pendiente
 
-- [ ] **TASK-07 · Del aviso de `catedra` a C02**
+- [x] **TASK-07 · Del aviso de `catedra` a C02**
   - Alcance: `catedra/domain/ports/out/CatalogUpdateHandler`; `catedra/domain/ports/in/ReceiveCatalogUpdateUseCase` y su implementación; `catedra/application/service/CatalogUpdateService`; `synchronization/infrastructure/gateway/CatalogUpdateHandlerAdapter`, que implementa el puerto y llama a `SynchronizationService` con el `eventId` y la `newVersion` (P1, decisión 004, excepción 1 de P10).
   - Depende de: TASK-04, TASK-05
   - Resuelve: RF-01 a RF-07 (el cruce); P1
   - Validación: unitario del caso de uso de `catedra` (entrega el aviso al puerto) y del adaptador (llama al service con los valores del aviso); chequeo 5 de la skill (§12): los únicos imports entre slices nuevos son el puerto y el modelo del aviso, del dominio de `catedra`, desde el adaptador. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 5). Hecha antes que TASK-06, que pasó a la tanda 6 (ver el orden de las tandas). Creados `CatalogUpdateHandler` (puerto de salida de `catedra`, `handleCatalogUpdate`, sin resultado), `ReceiveCatalogUpdateUseCase` y su implementación (entrega el aviso al puerto), `CatalogUpdateService` (el segundo service de `catedra`, el de los avisos) y `synchronization/infrastructure/gateway/CatalogUpdateHandlerAdapter`, que implementa el puerto y llama a `SynchronizationService.synchronizeCatalogIncrementally` con el `eventId` y la `newVersion` del aviso.
+    - `ReceiveCatalogUpdateUseCaseImplTest` (1 test: el aviso llega tal cual al puerto) y `CatalogUpdateHandlerAdapterTest` (1 test: el service recibe el `eventId` y la `newVersion`, con un `SynchronizationService` armado con dobles de sus tres puertos), en verde. `CatalogoApplicationTests` en verde: Spring une el puerto de `catedra` con el adaptador de `synchronization` al arrancar.
+    - `./mvnw -q clean test`: 460 tests en 54 clases (458 + 2), 0 fallos ni errores.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: el adaptador mandando otra versión (falló el test del adaptador); el caso de uso sin entregar el aviso (falló el test del caso de uso).
+    - Chequeos de la skill (§12): el único import entre slices nuevo es el de `CatalogUpdateHandlerAdapter`, con `catedra.domain.model.CatalogUpdateNotice` y `catedra.domain.ports.out.CatalogUpdateHandler` (excepción 1 de P10); `catedra` no importa nada de otros slices.
 
 ## Etapa 7 · El consumo
 
