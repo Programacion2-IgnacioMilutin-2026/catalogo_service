@@ -180,9 +180,9 @@ Un resultado que otro slice necesita leer va como resultado sellado en el domini
 
 Todas tienen un valor por defecto y ninguna hace falta en el `.env`. Cada una se ajusta con una variable `CATALOGO_…` (en el `.env` o en el entorno), que `application.yaml` pasa a la propiedad con un placeholder `${VARIABLE:valor por defecto}`. Como en turnos, el `.env.example` las lista comentadas y con su valor por defecto (TASK-16 de C03).
 
-El valor por defecto está escrito dos veces, en el yaml y en el `@DefaultValue` del código. `ApplicationYamlVariablesTest` comprueba que coincidan, y que cada variable llegue a su propiedad. Los mismos números aparecen en más de una sección a propósito (P10 del PLAN de C03): cada una se ajusta por separado.
+El valor por defecto está escrito dos veces, en el yaml y en el `@DefaultValue` del código: si se cambia uno, hay que cambiar el otro. Los mismos números aparecen en más de una sección a propósito (P10 del PLAN de C03): cada una se ajusta por separado.
 
-Con una variable presente pero vacía (comprobado en `ApplicationYamlVariablesTest`):
+Con una variable presente pero vacía (comprobado en TASK-16 de C03):
 
 - una duración toma el valor por defecto;
 - un número (intentos o multiplicador) no se puede leer, y la aplicación no arranca;

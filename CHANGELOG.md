@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentacion de SDD del caso de uso C02-SincronizacionIncremental.
 - Resultados para catchUp, en slice 'Synchronization'.
 - Funcion a synchrinizationLock para tomar el lock pero epserar a que se libere.
+- Entidad de ProcessedEvent con repsoitorio y demas en slice 'Synchronization', para alamcenar los avisos de la catedra que ya se procesaron.
 ### Removed 
 - Excepciones en slice 'Catalog' utilizadas para aplicar una version del catalogo, ahora devuelve un record con el error y resultado.
 ### Changed

@@ -139,7 +139,7 @@ Rutas bajo `src/main/java/catalogo/`; las nuevas son propuestas.
 | Recursos | `db/migration/V2__create_processed_events.sql` | Crear | Tabla `processed_events`: `event_id` (`VARCHAR(255)`, clave) y `processed_at` (P3) | RF-06 |
 | Recursos | `application.yaml`, `.env.example` | Modificar | `CATALOGO_CATEDRA_KAFKA_ENABLED` y `CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL` (P8) | RF-01 |
 | Proyecto | `pom.xml` | Modificar | Surefire apaga el consumo en todos los tests, también con `-Pe2e` (P8, P9) | — |
-| Tests | Kafka en contenedor, login simulado con ese Kafka, publicación de avisos, tests movidos de C03 a la pieza, tests nuevos de C02, del lector, del candado y de X01 con el aviso; `ApplicationYamlVariablesTest` | Crear / modificar | P9.1 | CA-01 a CA-13 |
+| Tests | Kafka en contenedor, login simulado con ese Kafka, publicación de avisos, tests movidos de C03 a la pieza, tests nuevos de C02, del lector, del candado y de X01 con el aviso | Crear / modificar | P9.1 | CA-01 a CA-13 |
 | Tests | `src/test/java/e2e/` (C02 contra la cátedra real) | Crear | P9.2 | CA-14 |
 | Proyecto | `CLAUDE.md`, `docs/decisiones/003-…` | Modificar | Slices, excepciones de C02, propiedades nuevas, cómo usar Kafka y lo comprobado del topic; en 003, las filas de C02 | `AGENTS.md`, "Código" |
 
@@ -178,7 +178,7 @@ No agregues dependencias por defecto. Los valores sensibles y los parámetros
 ajustables se externalizan. -->
 
 - **Dependencias:** ninguna nueva. spring-kafka 4.1.2 y kafka-clients 4.2.2 (por `spring-boot-starter-kafka`), y `testcontainers-kafka` 2.0.5 para los tests, ya están en el `pom.xml`. La imagen `apache/kafka:4.2.1` ya está en el Docker local (la usa turnos).
-- **Propiedades nuevas (P8):** `catalogo.catedra.kafka.enabled` (`CATALOGO_CATEDRA_KAFKA_ENABLED`, `true`) y `catalogo.catedra.kafka.max-poll-interval` (`CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL`, `10m`), con su variable en el yaml, el `.env.example`, la tabla del `CLAUDE.md` y `ApplicationYamlVariablesTest`. Fijos en el código: `latest`, sin confirmación automática, un aviso por lectura y 30 s como máximo entre reconexiones. `catalogo.catedra.kafka.consumer-group` existe solo para los E2E y no está en el yaml (P9.2).
+- **Propiedades nuevas (P8):** `catalogo.catedra.kafka.enabled` (`CATALOGO_CATEDRA_KAFKA_ENABLED`, `true`) y `catalogo.catedra.kafka.max-poll-interval` (`CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL`, `10m`), con su variable en el yaml, el `.env.example` y la tabla del `CLAUDE.md`. Fijos en el código: `latest`, sin confirmación automática, un aviso por lectura y 30 s como máximo entre reconexiones. `catalogo.catedra.kafka.consumer-group` existe solo para los E2E y no está en el yaml (P9.2).
 - **Secretos:** ninguno nuevo. Los datos de Kafka llegan con la sesión técnica y no llevan credenciales.
 
 ## Estrategia de validación
@@ -205,7 +205,7 @@ demuestra persistencia, transacciones ni idempotencia. -->
 | CA-13 | Captura de la salida en los tests de integración, con un aviso inválido que trae saltos de línea y un texto largo | Los escenarios de integración | Avisos y resultados en el log; recortes de 100 caracteres con `?`; sin el JWT ni la contraseña de Redis de test |
 | CA-14 | E2E (`@Tag("e2e")`), corrido por el usuario con `-Pe2e` (P9.2) | Cátedra real (API, Redis y Kafka), `.env` local, `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` terminada en `-e2e`, base descartable | Versión local en `currentVersion` y `eventId` registrado con el último aviso real; la segunda entrega, sin cambios |
 
-**Comprobaciones de regresión:** la suite completa (401 tests al cerrar C03), con los tests de integración de C03 sin cambios como prueba de que la verificación se comporta igual, y los cinco chequeos de la skill (§12).
+**Comprobaciones de regresión:** la suite completa (394 tests al cerrar C03), con los tests de integración de C03 sin cambios como prueba de que la verificación se comporta igual, y los cinco chequeos de la skill (§12).
 
 **Comandos verificados para compilar y ejecutar tests:** los del `CLAUDE.md`, ejecutados en C03.
 
@@ -231,7 +231,7 @@ Cada etapa deja la suite en verde.
 4. **C02 en `synchronization`:** caso de uso, resultado y service, con dobles (CA-06 a CA-12 en sus partes unitarias).
 5. **El aviso en `catedra` (P7):** modelo, lector y DTO, con el recorte del log (CA-04, CA-05, CA-13 en su parte unitaria).
 6. **El cruce y el aviso de sesión (P1, P5):** `CatalogUpdateHandler`, `ReceiveCatalogUpdateUseCase` y su service, el adaptador de `synchronization`, y `TechnicalIntegrationListener` en los dos casos de uso del login (CA-02 en su parte unitaria).
-7. **El consumo (P4, P8):** propiedades, `KafkaCatalogConsumer`, el oyente, el yaml, el `.env.example`, Surefire y `ApplicationYamlVariablesTest`. Aquí se comprueba que el servicio arranca sin intentar conectarse a `localhost:9092`.
+7. **El consumo (P4, P8):** propiedades, `KafkaCatalogConsumer`, el oyente, el yaml, el `.env.example` y Surefire. Aquí se comprueba que el servicio arranca sin intentar conectarse a `localhost:9092`.
 8. **Integración con Kafka en contenedor (P9.1):** CA-01 a CA-03, CA-06, CA-07, CA-09 a CA-11 y CA-13.
 9. **E2E (P9.2):** lo corre el usuario (CA-14).
 10. **Cierre:** regresión, chequeos de la skill, `CLAUDE.md`, filas de C02 en `docs/decisiones/003`, y con el usuario, el "por verificar" de la decisión 014 de turnos.

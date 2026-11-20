@@ -26,7 +26,8 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.List;
 
-// Pone la copia local al día con la versión vigente de Redis. La usan la verificación y el aviso de Kafka, con el candado ya tomado. Fachada, utiliza puertos de otros slices.
+// Pone la copia local al día con la versión vigente de Redis. Ordena las versiones y como actualizar.
+// La usan la verificación y el aviso de Kafka, con el candado ya tomado. Fachada, utiliza puertos de otros slices.
 @Slf4j
 @Component
 @RequiredArgsConstructor

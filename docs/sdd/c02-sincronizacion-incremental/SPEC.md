@@ -254,7 +254,7 @@ Para el PLAN, ya anotado:
 - El tiempo máximo que Kafka espera entre dos lecturas del consumidor, con margen sobre el peor caso de la espera de D5.
 - Que los warnings de reconexión del cliente de Kafka no llenen el log (D11).
 - Apagar el consumo en los tests que no son de Kafka: la cátedra simulada informa servidores inventados.
-- Cada propiedad ajustable nueva lleva su variable en el yaml, en el `.env.example`, en la tabla del `CLAUDE.md` y en `ApplicationYamlVariablesTest`.
+- Cada propiedad ajustable nueva lleva su variable en el yaml, en el `.env.example` y en la tabla del `CLAUDE.md`.
 
 Para el cierre:
 
