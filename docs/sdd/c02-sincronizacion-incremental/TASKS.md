@@ -1,6 +1,6 @@
 # TASKS: C02 — Sincronizar catálogo incrementalmente
 
-SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05, y tanda 5: TASK-07, autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 394. Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
 
@@ -75,12 +75,15 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 6 · El cruce entre slices y el aviso de sesión
 
-- [ ] **TASK-06 · Aviso de sesión habilitada en X01**
+- [x] **TASK-06 · Aviso de sesión habilitada en X01**
   - Alcance: `catedra/domain/ports/out/TechnicalIntegrationListener`; `StartTechnicalSessionUseCaseImpl` y `RenewTechnicalSessionUseCaseImpl` lo llaman después de guardar una sesión habilitada (P5). Sin otro cambio de X01. Tests de los dos casos de uso con un doble del puerto.
   - Depende de: ninguna
   - Resuelve: base de RF-01 (D12.1); CA-02 (parte unitaria)
   - Validación: unitarios de los dos casos de uso: avisan una vez con la integración cuando la sesión queda habilitada, y no avisan si queda degradada, con error de configuración o sin integración completa; los tests existentes de X01 siguen en verde sin cambiar lo que comprueban. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 6, junto con TASK-08). Creado `TechnicalIntegrationListener` (`integrationEnabled(integración)`). `StartTechnicalSessionUseCaseImpl` avisa después de guardar la sesión habilitada; `RenewTechnicalSessionUseCaseImpl`, después de guardar la renovada, solo si quedó habilitada (no avisa cuando devuelve la sesión que ya estaba). En los dos, un error de quien escucha queda en el log ("The enabled integration could not be notified") y no cambia el resultado del login.
+    - Tests: `StartTechnicalSessionUseCaseImplTest` pasa de 22 a 25 (avisa una vez al habilitarse, también después de un intento fallido; no avisa con error de configuración, cátedra caída, integración no aprovisionada ni incompleta; un oyente que falla no cambia el login) y `RenewTechnicalSessionUseCaseImplTest` de 23 a 27 (avisa al habilitarse; no avisa al devolver la sesión que ya estaba; no avisa si no se habilita; un oyente que falla no cambia la renovación). Los tests existentes solo cambiaron en el armado (el oyente al construir).
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: `Start` sin avisar (2 fallos); `Renew` avisando antes de saber si quedó habilitada (1 fallo).
+    - Suite completa al cerrar la tanda: ver TASK-08.
 
 - [x] **TASK-07 · Del aviso de `catedra` a C02**
   - Alcance: `catedra/domain/ports/out/CatalogUpdateHandler`; `catedra/domain/ports/in/ReceiveCatalogUpdateUseCase` y su implementación; `catedra/application/service/CatalogUpdateService`; `synchronization/infrastructure/gateway/CatalogUpdateHandlerAdapter`, que implementa el puerto y llama a `SynchronizationService` con el `eventId` y la `newVersion` (P1, decisión 004, excepción 1 de P10).
@@ -95,12 +98,20 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 7 · El consumo
 
-- [ ] **TASK-08 · Consumir el topic del catálogo**
+- [x] **TASK-08 · Consumir el topic del catálogo**
   - Alcance: `catedra/infrastructure/kafka/CatedraKafkaProperties` (`enabled`, `max-poll-interval`, y `consumer-group` solo para los E2E, sin entrada en el yaml); `catedra/infrastructure/kafka/KafkaCatalogConsumer`, que implementa `TechnicalIntegrationListener`: con la primera integración arma el contenedor de spring-kafka (grupo `{kafkaConsumerGroupId}-catalog`, `latest`, sin confirmación automática, un aviso por lectura, `max-poll-interval`, 30 s como máximo entre reconexiones), pide el oyente con `ObjectProvider`, deja el warning de D12.2 si cambian los datos, no hace nada si `enabled` está apagado, y detiene el contenedor al apagar el servicio; `catedra/infrastructure/kafka/CatalogUpdateListener`: lector, service y todo error atrapado y registrado (P4, P7, P8). `application.yaml` y `.env.example` con `CATALOGO_CATEDRA_KAFKA_ENABLED` y `CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL`, y en la tabla del `CLAUDE.md`; Surefire apaga el consumo en todos los tests, también con `-Pe2e`.
   - Depende de: TASK-06, TASK-07
   - Resuelve: RF-01, RF-07 (oyente que nunca deja un aviso sin confirmar), RF-08 (log del aviso inválido); CA-02 (parte del consumidor)
   - Validación: unitario de `KafkaCatalogConsumer` con dos integraciones distintas (la segunda deja el warning y no rearma) y con `enabled` apagado; unitario del oyente (un error en el service queda en el log y no sale); la aplicación completa arranca en un test (riesgo del ciclo de beans) sin intentar conectarse a `localhost:9092` (riesgo del starter), comprobado en su log. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 6). **Ajuste aprobado por el usuario antes de escribir el consumidor:** P6 suponía que, al apagar, el contenedor interrumpe el hilo de C02 y el aviso se reentrega; spring-kafka no lo interrumpe. Se aceptó sin código extra: el aviso en curso termina o falla y se confirma, y si quedó sin aplicar lo cubre la verificación del arranque. Se corrigieron P6 y la nota de apagado en el PLAN, y la fila "Reinicio" de la SPEC.
+    - Creados `CatedraKafkaProperties` (`enabled` y `max-poll-interval`, que vacías conservan su valor por defecto, y `consumer-group`, solo para los E2E, sin entrada en el yaml); `KafkaCatalogConsumer` (implementa `TechnicalIntegrationListener` y `DisposableBean`, como el adaptador de Redis): con la primera integración arma el contenedor de spring-kafka y lo arranca en un hilo aparte; grupo `{kafkaConsumerGroupId}-catalog`, `latest`, sin confirmación automática, `max.poll.records` 1, `max.poll.interval.ms` configurable y `reconnect.backoff.max.ms` 30 s; `AckMode.RECORD`; pide el oyente con `ObjectProvider`; un segundo login con otros datos deja un warning y sigue con los primeros; si no puede arrancar, un login posterior lo vuelve a intentar; lo detiene al apagar; y `CatalogUpdateListener`: lector, `CatalogUpdateService` y todo error atrapado y registrado con la partición y la posición. Como el oyente no deja salir errores, el manejador del contenedor no reintenta (si algo saliera igual, se registra una vez y el aviso se da por leído).
+    - `application.yaml` (`catalogo.catedra.kafka.enabled` y `max-poll-interval`), `.env.example` (las dos variables, comentadas, con su explicación), tabla del `CLAUDE.md` (dos filas) y Surefire (`catalogo.catedra.kafka.enabled=false` en todos los tests).
+    - Tests: `CatalogUpdateListenerTest` (3: entrega el válido; descarta el inválido con partición, posición, `eventId` y motivo; un error no sale), `KafkaCatalogConsumerTest` (6, sin Kafka: la configuración completa con el grupo `-catalog`; el intervalo configurable; el grupo de tests reemplaza al del servicio; propiedades vacías con sus valores por defecto; apagado no arranca nada; la primera integración arranca el consumo, contra un puerto donde no escucha nadie, y una segunda con otros datos solo deja un warning; al apagar deja de consumir) y `KafkaStartupIntegrationTest` (1: la aplicación completa arranca con el consumo encendido, sin sesión no consume, y su log no tiene `localhost:9092` ni intentos de conexión).
+    - Los dos riesgos del PLAN, comprobados: la aplicación arranca (sin ciclo de beans) y en el log de toda la suite no aparece `localhost:9092` (las piezas por defecto del starter no se conectan).
+    - `./mvnw -q clean test`: 477 tests en 57 clases (460 + 3 de `Start` + 4 de `Renew` + 3 + 6 + 1), 0 fallos ni errores.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: el consumidor recibiendo el oyente al crearse, sin `ObjectProvider` (la aplicación no arranca: "circular references … are prohibited by default", con la cadena `catalogUpdateService` → `receiveCatalogUpdateUseCaseImpl` → `catalogUpdateHandlerAdapter` → …; el riesgo era real); `earliest` en lugar de `latest` (1 fallo); el oyente dejando salir los errores (1 fallo).
+    - Chequeos de la skill (§12) sin resultados, y nada de Kafka fuera de `catedra/infrastructure/kafka`.
+    - Sin probar todavía: el consumo contra un Kafka de verdad (TASK-09 a TASK-12).
 
 ## Etapa 8 · Integración con Kafka en contenedor
 

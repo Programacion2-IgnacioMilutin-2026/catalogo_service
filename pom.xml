@@ -202,6 +202,7 @@
 					<systemPropertyVariables>
 						<catalogo.env-file>${tests.env-file}</catalogo.env-file>
 						<catalogo.synchronization.verification.enabled>false</catalogo.synchronization.verification.enabled>
+						<catalogo.catedra.kafka.enabled>false</catalogo.catedra.kafka.enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

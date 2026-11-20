@@ -101,3 +101,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Caso de uso de la sincronizacion incremental en slice 'Synchronization', con sus tests.
 - Lectura y validacion del aviso actualizacion del catalogo en slice 'Catedra'.
 - Caso de uso en slice 'Catedra' para enviar el aviso al slice 'Syncornization' para que lo utilice la sincronizacion incremental.
+- Listener para enterarse cuando el login tecnico ya termino. 
+- Consumer del topic de kafka.
