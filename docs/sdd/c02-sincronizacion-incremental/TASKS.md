@@ -1,6 +1,6 @@
 # TASKS: C02 — Sincronizar catálogo incrementalmente
 
-SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; tanda 7: TASK-09 y TASK-10; autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; tanda 7: TASK-09 y TASK-10; tanda 8: TASK-11 y TASK-12; autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 394. Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
 
@@ -137,19 +137,35 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw -q clean test`: 483 tests en 61 clases (477 + 2 de TASK-09 + 1 de reconexión + 3), 0 fallos ni errores; unos 88 s de tests.
     - Pruebas en negativo, restauradas con `sha256sum` comprobado: `earliest` (CA-01 falló: se procesó el aviso de antes); `Renew` sin avisar (CA-02 falló: el consumo nunca arrancó); el contenedor sin confirmar los avisos, `AckMode.MANUAL` (CA-03 falló: no quedó la posición confirmada); sin el ajuste de reconexión (el test de reconexión falló con 15 warnings).
 
-- [ ] **TASK-11 · Integración de un aviso: recorrido y repetidos**
+- [x] **TASK-11 · Integración de un aviso: recorrido y repetidos**
   - Alcance: tests de integración de punta a punta, del aviso publicado a la base.
   - Depende de: TASK-10
   - Resuelve: CA-04, CA-05, CA-06, CA-08, CA-09, CA-10, CA-13
   - Validación: un aviso con versiones pendientes aplica de forma incremental y registra el `eventId`; un inválido seguido de uno válido: el primero descartado con su motivo y sin cambios, el segundo procesado; el mismo aviso dos veces: la segunda no lee Redis ni cambia nada; el `eventId` borrado y el aviso publicado de nuevo: al día, registrado, sin cambios repetidos; con la base vacía, sincronización completa sin leer Redis; el log tiene los avisos y resultados, recortes con `?` para un aviso con saltos de línea, y no tiene el JWT ni la contraseña de Redis de test. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 8). `synchronization/CatalogNoticeIntegrationTest` (5 escenarios en una clase, porque comparten la configuración de la aplicación; `@DirtiesContext`), con Kafka y Redis en contenedor y la cátedra simulada:
+    - un aviso con dos versiones pendientes (un profesional renombrado y una categoría deshabilitada) las aplica de forma incremental, sin pedir el snapshot: versión 59, `INCREMENTAL` `SUCCESS`, aviso registrado, todo confirmado; en el log, "received: newVersion 59", "applied versions 58 to 59" y "finished: Updated[localVersion=59]";
+    - un aviso inválido (`schemaVersion` 2) seguido de uno válido: el primero se descarta con su motivo y nunca llega a C02, el segundo se procesa, y los dos quedan confirmados;
+    - el mismo aviso dos veces: el segundo dice "was already processed", no lee Redis (una sola línea "up to date") y el estado no cambia;
+    - el aviso registrado se borra, como si el servicio se hubiera cortado antes de registrarlo, y se vuelve a publicar: encuentra el catálogo al día, se registra de nuevo y no repite cambios ("applied versions 58 to 58" aparece una sola vez y el último éxito no cambia);
+    - un aviso con un salto de línea en el `eventId` llega al log como `fake?2026-11-20 ERROR forged line`, sin la línea falsa.
 
-- [ ] **TASK-12 · Integración de un aviso: fallas y concurrencia**
+    En todos, el log no tiene el JWT, la contraseña de la cuenta ni la de Redis. La base vacía (sincronización completa sin leer Redis) quedó probada en CA-01 (TASK-10), con el mismo recorrido en el log.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: C02 sin consultar si el aviso ya se procesó (falló el de los repetidos); sin registrar el aviso al aplicar versiones (falló el del recorrido); `forLog` sin reemplazar (falló el del salto de línea).
+    - Suite completa al cerrar la tanda: ver TASK-12.
+
+- [x] **TASK-12 · Integración de un aviso: fallas y concurrencia**
   - Alcance: tests de integración con dependencias que fallan y con otra sincronización en curso.
   - Depende de: TASK-10
   - Resuelve: CA-07, CA-09 (falla del registro), CA-11
   - Validación: con una verificación en curso (demorada), el aviso espera, después aplica lo publicado mientras tanto, y nunca hay dos sincronizaciones a la vez; la base rechaza el registro del `eventId` (disparador de PostgreSQL, como en C01): error en el log, offset confirmado y estado sin cambios; Redis caído: el fracaso queda registrado como en C03, el `eventId` no, el offset se confirma y el aviso siguiente se procesa. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 8). Dos clases en `synchronization/`, con `@DirtiesContext`:
+    - `CatalogNoticeConcurrencyIntegrationTest` (3 escenarios; la cátedra simulada demora el snapshot 3 s para que una sincronización dure):
+      - con una verificación en curso (base vacía, snapshot demorado), llega un aviso: espera, y cuando la verificación termina vuelve a leer y encuentra el catálogo al día, con un solo snapshot pedido. En el log, con sus tiempos: aviso recibido a las 01.878, verificación al día a las 05.139, y recién a las 05.147 el aviso lee de nuevo;
+      - con un aviso en curso (base vacía, snapshot demorado), una verificación se omite ("skipped: another synchronization is in progress") y el aviso termina con `Updated[localVersion=57]`;
+      - con un disparador de PostgreSQL que rechaza el registro del aviso, el aviso termina igual (`Updated`), queda "could not be registered as processed" en el log, no se registra, el offset se confirma y el estado es el del éxito de la sincronización (`SUCCESS`, sin tipo de error).
+    - `CatalogNoticeWithoutRedisIntegrationTest` (1 escenario; Redis en un puerto cerrado): dos avisos con la base vacía; el primero carga el snapshot y falla al leer Redis, el segundo también falla; los dos terminan con `Failed[reason=SOURCE_UNAVAILABLE…`, ninguno se registra, los dos quedan confirmados (posición 2), y el estado dice versión 57, tipo `FULL`, `ERROR` y `SOURCE_UNAVAILABLE`.
+    - `./mvnw -q clean test`: 492 tests en 64 clases (483 + 5 de TASK-11 + 3 + 1), 0 fallos ni errores; unos 107 s de tests.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: C02 probando el candado sin esperar (`tryAcquire`) (falló el de la espera); el rechazo del registro sin atrapar en el caso de uso (falló el del disparador: el aviso nunca terminó); C02 registrando el aviso también cuando falla (falló el de Redis caído).
 
 ## Etapa 9 · E2E
 
