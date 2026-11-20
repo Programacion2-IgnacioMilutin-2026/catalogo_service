@@ -1,0 +1,132 @@
+# TASKS: C02 — Sincronizar catálogo incrementalmente
+
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01, autorizada el 2026-11-19).
+
+Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 401 (TASK-16 de C03). Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
+
+Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-02 y TASK-03; 3 = TASK-04; 4 = TASK-05; 5 = TASK-06 y TASK-07; 6 = TASK-08; 7 = TASK-09 y TASK-10; 8 = TASK-11 y TASK-12; 9 = TASK-13; 10 = TASK-14 (usuario); 11 = TASK-15.
+
+## Etapa 1 · La pieza común (sin cambio de comportamiento)
+
+- [ ] **TASK-01 · Sacar `CatalogCatchUp` de la verificación**
+  - Alcance: `synchronization/domain/model/CatchUpResult` (nuevo: al día, actualizado y fallido); `synchronization/application/support/CatalogCatchUp` (nuevo), con el procedimiento movido de los métodos privados de `VerifyCatalogVersionUseCaseImpl` sin cambiar su comportamiento, y los textos del log neutros; una completa "descartada" dentro de la pieza se trata como fallida con un error en el log (P2.1). `VerifyCatalogVersionUseCaseImpl` queda con esperar el login, `tryAcquire` u omitirse, la pieza y la traducción de `CatchUpResult` a `VerificationResult`, sin cambiar su puerto. Tests: los 17 del procedimiento pasan de `VerifyCatalogVersionUseCaseImplTest` a `CatalogCatchUpTest`; quedan los 2 propios de C03 y uno nuevo que muestra que usa la pieza; se ajustan los tests que miran los textos del log. No se toca nada de `catedra`, `catalog` ni el disparador.
+  - Depende de: ninguna
+  - Resuelve: base de RF-05; CA-08 (parte de C03); P2, P2.1
+  - Validación: línea base antes de tocar nada (`./mvnw -q test`, 401 tests); después, `./mvnw test` en verde, con los tests de integración de C03 (`CatalogVerificationIntegrationTest`, `CatalogVerificationWithoutRedisIntegrationTest`, `VerificationAtStartupIntegrationTest`, `VerificationSchedulingIntegrationTest`) sin cambios en lo que comprueban; el conteo de tests sube solo por los nuevos. Prueba en negativo en la pieza y otra en la traducción de C03.
+  - Resultado: pendiente
+
+## Etapa 2 · El candado que espera
+
+- [ ] **TASK-02 · Esperar el candado, interrumpible**
+  - Alcance: `SynchronizationLock` suma una espera hasta tomarlo con `lockInterruptibly`, sin tope (P6). Tests unitarios con dos hilos.
+  - Depende de: ninguna
+  - Resuelve: base de RF-04; CA-07 (parte del candado)
+  - Validación: un hilo espera mientras otro tiene el candado y lo toma al liberarse; un hilo esperando se interrumpe y la espera termina sin tomarlo, con la marca de interrupción restaurada; quien ya lo tiene vuelve a entrar sin esperar; `tryAcquire` sigue igual. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 3 · Avisos procesados
+
+- [ ] **TASK-03 · Persistencia de los avisos procesados en `synchronization`**
+  - Alcance: `db/migration/V2__create_processed_events.sql` (`event_id` `VARCHAR(255)` clave, `processed_at`); `synchronization/domain/model/ProcessedEvent` (clase Lombok); `synchronization/domain/ports/out/ProcessedEventRepository` (saber si existe un `eventId` y registrarlo); `synchronization/infrastructure/persistence/` con la entidad, el repositorio de Spring Data (`String` como clave), el mapper y el adaptador (P3, excepción 5 de P10).
+  - Depende de: ninguna
+  - Resuelve: base de RF-03 y RF-06; CA-09 y CA-10 (parte de la base)
+  - Validación: la migración corre en la base de Testcontainers y no toca las tablas de C01; test de ida y vuelta del mapper (skill §10); integración del adaptador contra la base real: un `eventId` no registrado no existe, después de registrarlo existe, el instante llega en UTC (leído con SQL directo), y uno de 255 caracteres se guarda. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 4 · C02 en `synchronization`
+
+- [ ] **TASK-04 · El caso de uso de C02**
+  - Alcance: `synchronization/domain/model/IncrementalSyncResult` (los tres casos de la pieza más "ya procesado"); `synchronization/domain/ports/in/SynchronizeCatalogIncrementallyUseCase`, que recibe el `eventId` y la `newVersion`; `synchronization/application/usecases/SynchronizeCatalogIncrementallyUseCaseImpl`: consultar el `eventId`, esperar el candado, la pieza común, registrar el `eventId` con un solo intento, las fallas de la base fuera de una versión (D9) y el log (RF-08); `SynchronizationService` expone C02. Tests unitarios con dobles.
+  - Depende de: TASK-01, TASK-02, TASK-03
+  - Resuelve: RF-03, RF-04, RF-05, RF-06, RF-07, RF-08 (parte de `synchronization`); CA-06, CA-07, CA-08, CA-09, CA-11 y CA-12 (partes unitarias); CA-13 (log del aviso)
+  - Validación: unitarios: un `eventId` registrado no toma el candado ni lee Redis; con el candado tomado por otro hilo, C02 espera y después lee de nuevo; terminó bien (aplicó, completa o al día) → `eventId` registrado; la base rechaza el registro → error en el log y el resultado sigue siendo el de la sincronización; cada fracaso de la pieza → `eventId` sin registrar; falla al consultar el `eventId` o al leer el estado → error en el log y sin escribir nada; interrupción durante la espera → termina sin procesar. El log tiene el `eventId`, la `newVersion` y el resultado. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 5 · El aviso en `catedra`
+
+- [ ] **TASK-05 · Leer y validar el aviso**
+  - Alcance: `catedra/domain/model/CatalogUpdateNotice`; `catedra/infrastructure/kafka/dto/CatalogUpdatedMessage` (los seis campos como texto); `catedra/infrastructure/kafka/CatalogUpdateReader`, con su resultado (válido o inválido con el motivo) y el recorte de lo que va al log: 100 caracteres y `?` por cada carácter de control (D6, P7).
+  - Depende de: ninguna
+  - Resuelve: RF-02 (lectura y validación); CA-04, CA-05 y CA-13 (partes unitarias)
+  - Validación: unitarios con un mensaje por cada defecto de CA-04 (valor nulo, JSON ilegible o que no es un objeto, cada campo ausente o vacío, `eventId` de 256 caracteres, con un salto de línea y con el carácter nulo, `eventType` distinto, `newVersion` negativa o no entera, `occurredAt` que no es un instante, `source` de 65 caracteres o con un carácter de control, `schemaVersion` distinto de 1) y por cada variante de CA-05 (`occurredAt` con nanosegundos y sin fracción, campos desconocidos, `source` fuera de los ejemplos); los mensajes reales de la lectura del topic, con el formato limpio, se aceptan; un inválido con `eventId` legible lo conserva para el log; el recorte deja 100 caracteres y reemplaza los de control. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 6 · El cruce entre slices y el aviso de sesión
+
+- [ ] **TASK-06 · Aviso de sesión habilitada en X01**
+  - Alcance: `catedra/domain/ports/out/TechnicalIntegrationListener`; `StartTechnicalSessionUseCaseImpl` y `RenewTechnicalSessionUseCaseImpl` lo llaman después de guardar una sesión habilitada (P5). Sin otro cambio de X01. Tests de los dos casos de uso con un doble del puerto.
+  - Depende de: ninguna
+  - Resuelve: base de RF-01 (D12.1); CA-02 (parte unitaria)
+  - Validación: unitarios de los dos casos de uso: avisan una vez con la integración cuando la sesión queda habilitada, y no avisan si queda degradada, con error de configuración o sin integración completa; los tests existentes de X01 siguen en verde sin cambiar lo que comprueban. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+- [ ] **TASK-07 · Del aviso de `catedra` a C02**
+  - Alcance: `catedra/domain/ports/out/CatalogUpdateHandler`; `catedra/domain/ports/in/ReceiveCatalogUpdateUseCase` y su implementación; `catedra/application/service/CatalogUpdateService`; `synchronization/infrastructure/gateway/CatalogUpdateHandlerAdapter`, que implementa el puerto y llama a `SynchronizationService` con el `eventId` y la `newVersion` (P1, decisión 004, excepción 1 de P10).
+  - Depende de: TASK-04, TASK-05
+  - Resuelve: RF-01 a RF-07 (el cruce); P1
+  - Validación: unitario del caso de uso de `catedra` (entrega el aviso al puerto) y del adaptador (llama al service con los valores del aviso); chequeo 5 de la skill (§12): los únicos imports entre slices nuevos son el puerto y el modelo del aviso, del dominio de `catedra`, desde el adaptador. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 7 · El consumo
+
+- [ ] **TASK-08 · Consumir el topic del catálogo**
+  - Alcance: `catedra/infrastructure/kafka/CatedraKafkaProperties` (`enabled`, `max-poll-interval`, y `consumer-group` solo para los E2E, sin entrada en el yaml); `catedra/infrastructure/kafka/KafkaCatalogConsumer`, que implementa `TechnicalIntegrationListener`: con la primera integración arma el contenedor de spring-kafka (grupo `{kafkaConsumerGroupId}-catalog`, `latest`, sin confirmación automática, un aviso por lectura, `max-poll-interval`, 30 s como máximo entre reconexiones), pide el oyente con `ObjectProvider`, deja el warning de D12.2 si cambian los datos, no hace nada si `enabled` está apagado, y detiene el contenedor al apagar el servicio; `catedra/infrastructure/kafka/CatalogUpdateListener`: lector, service y todo error atrapado y registrado (P4, P7, P8). `application.yaml` y `.env.example` con `CATALOGO_CATEDRA_KAFKA_ENABLED` y `CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL`; `ApplicationYamlVariablesTest`; Surefire apaga el consumo en todos los tests, también con `-Pe2e`.
+  - Depende de: TASK-06, TASK-07
+  - Resuelve: RF-01, RF-07 (oyente que nunca deja un aviso sin confirmar), RF-08 (log del aviso inválido); CA-02 (parte del consumidor)
+  - Validación: unitario de `KafkaCatalogConsumer` con dos integraciones distintas (la segunda deja el warning y no rearma) y con `enabled` apagado; unitario del oyente (un error en el service queda en el log y no sale); `ApplicationYamlVariablesTest` con las dos variables nuevas; la aplicación completa arranca en un test (riesgo del ciclo de beans) sin intentar conectarse a `localhost:9092` (riesgo del starter), comprobado en su log. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 8 · Integración con Kafka en contenedor
+
+- [ ] **TASK-09 · Kafka en contenedor para los tests**
+  - Alcance: en `src/test/java/catalogo/`: Kafka de Testcontainers (`apache/kafka:4.2.1`), compartido por la suite, que se puede pausar y reanudar; una ayuda para publicar avisos como la cátedra y saber hasta dónde confirmó un grupo; un login de `FakeCatedraServer` cuya integración apunta a ese Kafka (y al Redis de test) (P9.1).
+  - Depende de: ninguna
+  - Resuelve: base de CA-01 a CA-03, CA-06, CA-07 y CA-09 a CA-13
+  - Validación: un test de la ayuda: publica un aviso, un consumidor de prueba lo lee, y la ayuda informa la posición confirmada; pausar y reanudar funcionan. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+- [ ] **TASK-10 · Integración del consumo**
+  - Alcance: tests `*IntegrationTest` con la aplicación completa, Kafka y Redis en contenedor y la cátedra simulada.
+  - Depende de: TASK-08, TASK-09
+  - Resuelve: CA-01, CA-02, CA-03
+  - Validación: CA-01: el grupo `{kafkaConsumerGroupId}-catalog` aparece en el Kafka de test, y se procesa el aviso publicado después de empezar a consumir y no el de antes. CA-02: con un login del arranque degradado, el consumo arranca con una renovación exitosa. CA-03: con Kafka pausado al arrancar, el servicio atiende y el estado no cambia; al reanudar, se procesan los avisos publicados mientras tanto, y los warnings de reconexión quedan acotados. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+- [ ] **TASK-11 · Integración de un aviso: recorrido y repetidos**
+  - Alcance: tests de integración de punta a punta, del aviso publicado a la base.
+  - Depende de: TASK-10
+  - Resuelve: CA-04, CA-05, CA-06, CA-08, CA-09, CA-10, CA-13
+  - Validación: un aviso con versiones pendientes aplica de forma incremental y registra el `eventId`; un inválido seguido de uno válido: el primero descartado con su motivo y sin cambios, el segundo procesado; el mismo aviso dos veces: la segunda no lee Redis ni cambia nada; el `eventId` borrado y el aviso publicado de nuevo: al día, registrado, sin cambios repetidos; con la base vacía, sincronización completa sin leer Redis; el log tiene los avisos y resultados, recortes con `?` para un aviso con saltos de línea, y no tiene el JWT ni la contraseña de Redis de test. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+- [ ] **TASK-12 · Integración de un aviso: fallas y concurrencia**
+  - Alcance: tests de integración con dependencias que fallan y con otra sincronización en curso.
+  - Depende de: TASK-10
+  - Resuelve: CA-07, CA-09 (falla del registro), CA-11
+  - Validación: con una verificación en curso (demorada), el aviso espera, después aplica lo publicado mientras tanto, y nunca hay dos sincronizaciones a la vez; la base rechaza el registro del `eventId` (disparador de PostgreSQL, como en C01): error en el log, offset confirmado y estado sin cambios; Redis caído: el fracaso queda registrado como en C03, el `eventId` no, el offset se confirma y el aviso siguiente se procesa. `./mvnw test` en verde.
+  - Resultado: pendiente
+
+## Etapa 9 · E2E
+
+- [ ] **TASK-13 · E2E de C02 contra la cátedra real**
+  - Alcance: `src/test/java/e2e/`: un E2E con `@Tag("e2e")` que exige `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` terminada en `-e2e` (la aplicación no la lee; el test la pasa a `catalogo.catedra.kafka.consumer-group`) y enciende el consumo solo para él. Recorrido (P9.2): carga el snapshot, baja la versión local con SQL, mueve la posición de su grupo al último aviso retenido, espera que el aviso se procese (versión en `currentVersion`, tipo `INCREMENTAL`, `eventId` registrado), vuelve a mover la posición al mismo aviso y comprueba que la segunda entrega no cambia nada. Lista exacta de pedidos para el usuario.
+  - Depende de: TASK-11
+  - Resuelve: CA-14 (preparación)
+  - Validación: compila; `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>` lo saltea sin credenciales; la suite normal no lo corre. No se ejecuta contra la cátedra real en esta tarea.
+  - Resultado: pendiente
+
+- [ ] **TASK-14 · Correr el E2E (lo hace el usuario)**
+  - Alcance: el usuario corre `./mvnw test -Pe2e` en su terminal, después de confirmar la lista de pedidos de TASK-13; se revisan los reportes sin mostrar secretos.
+  - Depende de: TASK-13
+  - Resuelve: CA-14
+  - Validación: el reporte del E2E en verde, con la versión, el tipo y el `eventId` del aviso real, y la segunda entrega sin cambios; el grupo del servicio sigue sin posiciones.
+  - Resultado: pendiente
+
+## Etapa 10 · Cierre
+
+- [ ] **TASK-15 · Cierre de C02**
+  - Alcance: `CLAUDE.md` (slices, excepciones de C02, propiedades nuevas, cómo usar Kafka de la cátedra, cómo pedir C02, tests de Kafka y lo comprobado del topic real); `docs/decisiones/003` con las filas de C02 (aviso al día, repetido, inválido, registro del `eventId`); marcar las tareas. Con el usuario: el "por verificar" de la decisión 014 de turnos (§4) sobre el consumer group, que es de otro repositorio, y si catálogo tiene su propio documento vivo de Kafka.
+  - Depende de: TASK-01 a TASK-14
+  - Resuelve: `AGENTS.md`, "Código"; cierre de la SPEC y el PLAN
+  - Validación: `./mvnw clean verify` en verde con el conteo final; los cinco chequeos de la skill (§12) sin resultados fuera de las excepciones autorizadas; las copias de los documentos siguen idénticas a `documentacion`.
+  - Resultado: pendiente

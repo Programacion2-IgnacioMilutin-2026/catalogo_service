@@ -67,9 +67,9 @@ sequenceDiagram
     else periodic check (C03, at startup and every interval)
         SCH->>CS: run verification
         CS->>CS: if another sync is in progress, skip this run
-        opt no local version (C03)
-            Note over CS: full sync (section 1) before reading Redis, then this pass continues once if it succeeds
-        end
+    end
+    opt no local version
+        Note over CS: full sync (section 1) before reading Redis, then this pass continues once if it succeeds
     end
     CS->>R: read metadata (currentVersion, oldestAvailableVersion)
     alt Redis unavailable
@@ -91,7 +91,7 @@ sequenceDiagram
             end
             Note over CS,DB: persistence failure rolls back only that version and follows the same retry policy
             Note over CS,R: changes:v missing or an affected ID not found is treated as a discontinuity, full sync
-        else no local version (C02), too old or ahead of Redis (not verifiable)
+        else too old or ahead of Redis (not verifiable)
             Note over CS: full sync (section 1), then this pass is repeated once
         end
         opt notice from Kafka

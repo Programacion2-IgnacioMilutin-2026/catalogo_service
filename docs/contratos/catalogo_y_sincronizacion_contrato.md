@@ -335,7 +335,7 @@ publishedAt = 2026-09-10T13:44:59Z
 | Dato | Valor |
 | --- | --- |
 | Topic | `kafkaCatalogTopic` (`catedra.catalog.{groupId}`) |
-| Consumer group | `kafkaConsumerGroupId` |
+| Consumer group | `kafkaConsumerGroupId` con el sufijo `-catalog`. El de `integration` es una sugerencia (anexo §15.2) y lo usa turnos; un grupo propio evita que los reacomodos de un servicio frenen al otro |
 | Dirección | Cátedra al catálogo. El catálogo no publica |
 | Message key | `newVersion` como texto |
 

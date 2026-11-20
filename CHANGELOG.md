@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Disparador periodico de la verificacion en slice 'Syncronization'.
 - Tests de integracion para C03-VerificacionPerioca. 
 - Nuevas variables confgurables en .en.example y application.yaml para que las utilice.
+- Documentacion de SDD del caso de uso C02-SincronizacionIncremental.
 ### Removed 
 - Excepciones en slice 'Catalog' utilizadas para aplicar una versiond del catalogo, ahora devuelve un record con el error y resultado.
 ### Changed
