@@ -105,3 +105,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consumer del topic de kafka.
 - Contenedro de kafka para los test.
 - Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
+- Test E2E de sincronizacion incremental.

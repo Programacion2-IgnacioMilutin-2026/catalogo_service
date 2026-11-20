@@ -1,6 +1,6 @@
 # TASKS: C02 — Sincronizar catálogo incrementalmente
 
-SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; tanda 7: TASK-09 y TASK-10; tanda 8: TASK-11 y TASK-12; autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; tanda 7: TASK-09 y TASK-10; tanda 8: TASK-11 y TASK-12; tanda 9: TASK-13; autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 394. Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
 
@@ -169,19 +169,29 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 9 · E2E
 
-- [ ] **TASK-13 · E2E de C02 contra la cátedra real**
+- [x] **TASK-13 · E2E de C02 contra la cátedra real**
   - Alcance: `src/test/java/e2e/`: un E2E con `@Tag("e2e")` que exige `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` terminada en `-e2e` (la aplicación no la lee; el test la pasa a `catalogo.catedra.kafka.consumer-group`) y enciende el consumo solo para él. Recorrido (P9.2): carga el snapshot, baja la versión local con SQL, mueve la posición de su grupo al último aviso retenido, espera que el aviso se procese (versión en `currentVersion`, tipo `INCREMENTAL`, `eventId` registrado), vuelve a mover la posición al mismo aviso y comprueba que la segunda entrega no cambia nada. Lista exacta de pedidos para el usuario.
   - Depende de: TASK-11
   - Resuelve: CA-14 (preparación)
   - Validación: compila; `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>` lo saltea sin credenciales; la suite normal no lo corre. No se ejecuta contra la cátedra real en esta tarea.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 9). Creado `e2e/IncrementalSynchronizationE2ETest`; `E2ECredentials` suma `kafkaAvailable` y `kafkaConsumerGroup` (exige `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` terminada en `-e2e`, o falla); `.env.example` suma esa variable comentada, aclarando que la aplicación no la lee. El test enciende el consumo y pasa el grupo de pruebas a `catalogo.catedra.kafka.consumer-group`.
+    - **Ajuste del recorrido de P9.2 al implementarlo:** Kafka solo deja mover la posición de un grupo sin miembros, y el consumidor de la aplicación se conecta solo al arrancar. Por eso el test detiene ese consumidor, mueve la posición del grupo de pruebas y arranca un consumidor nuevo con el mismo grupo, como en un reinicio (lo mismo que CA-03); para la segunda entrega repite los tres pasos con el mismo aviso. El consumidor de la aplicación se detiene al principio, antes de preparar la copia: si llegara el aviso de la hora mientras tanto, no se adelanta al del test.
+    - Recorrido: espera la sesión; lee la posición del grupo del servicio (solo lectura); detiene el consumidor; carga el snapshot y baja la versión local a `currentVersion − 3` con SQL (comprueba que queda dentro de la ventana); lee el `eventId` del último aviso retenido sin consumer group; primera entrega: espera el aviso registrado y comprueba `INCREMENTAL` `SUCCESS`, la versión al menos en `currentVersion` y "applied versions {local+1} to" en el log; segunda entrega del mismo aviso: espera "was already processed" y comprueba que el estado no cambió; comprueba que la posición del grupo del servicio es la misma que al principio, y que el log no tiene el JWT, la contraseña de Redis ni la de la cuenta.
+    - Compila; `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>` lo saltea con su motivo, igual que los E2E de C01 y C03; la suite normal no lo corre (etiqueta `e2e`). El `.env` local todavía no tiene `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` (se miró solo si la clave existe, sin leer valores): sin ella, el E2E se saltea.
+    - Limitación conocida: si la cátedra publica una versión entre la primera y la segunda entrega, el consumidor nuevo también procesa ese aviso y el estado cambia; la comparación del estado fallaría por eso y no por un defecto. Con un aviso por hora, la ventana es de segundos.
+    - No se ejecutó contra la cátedra real: es TASK-14.
 
-- [ ] **TASK-14 · Correr el E2E (lo hace el usuario)**
+- [x] **TASK-14 · Correr el E2E (lo hace el usuario)**
   - Alcance: el usuario corre `./mvnw test -Pe2e` en su terminal, después de confirmar la lista de pedidos de TASK-13; se revisan los reportes sin mostrar secretos.
   - Depende de: TASK-13
   - Resuelve: CA-14
   - Validación: el reporte del E2E en verde, con la versión, el tipo y el `eventId` del aviso real, y la segunda entrega sin cambios; el grupo del servicio sigue sin posiciones.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20. El usuario agregó `CATALOGO_E2E_KAFKA_CONSUMER_GROUP` a su `.env` y corrió `./mvnw test -Pe2e -Dtest=IncrementalSynchronizationE2ETest` con la lista de pedidos de TASK-13. Reporte leído sin mostrar el topic, el grupo, los hosts ni secretos: 1 test, 0 fallos ni errores, 31,5 s.
+    - Snapshot real cargado en la versión 382 (8 categorías, 24 profesionales, 44 horarios); versión local bajada a 379, dentro de la ventana.
+    - Primera entrega del último aviso retenido (posición 380 del topic, `newVersion` 382): el consumidor nuevo tomó la posición confirmada 380, y el aviso aplicó las versiones 380 a 382 de forma incremental en 1,8 s; quedó `INCREMENTAL` `SUCCESS` en 382 y el aviso registrado (evidencia "actualización incremental del catálogo" del enunciado §11).
+    - Segunda entrega del mismo aviso: "was already processed: nothing to do" y `AlreadyProcessed`, en 4 ms, sin leer Redis y con el estado igual (evidencia "procesamiento idempotente de un mensaje duplicado").
+    - La posición del grupo del servicio quedó igual que al empezar, y el log no tiene el JWT, la contraseña de Redis ni la de la cuenta (comprobado por el propio test).
+    - Lo que dejó en la cátedra: solo la posición del grupo de pruebas.
 
 ## Etapa 10 · Cierre
 

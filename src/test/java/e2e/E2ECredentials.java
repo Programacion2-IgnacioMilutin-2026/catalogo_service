@@ -12,6 +12,7 @@ final class E2ECredentials {
 
     private static final List<String> CREDENTIALS = List.of(
             "CATALOGO_CATEDRA_BASE_URL", "CATALOGO_CATEDRA_USERNAME", "CATALOGO_CATEDRA_PASSWORD");
+    private static final String KAFKA_CONSUMER_GROUP = "CATALOGO_E2E_KAFKA_CONSUMER_GROUP";
 
     private E2ECredentials() {
     }
@@ -23,6 +24,19 @@ final class E2ECredentials {
 
     static String password() {
         return read().getProperty("CATALOGO_CATEDRA_PASSWORD", "");
+    }
+
+    static boolean kafkaAvailable() {
+        return available() && !read().getProperty(KAFKA_CONSUMER_GROUP, "").isBlank();
+    }
+
+    static String kafkaConsumerGroup() {
+        String group = read().getProperty(KAFKA_CONSUMER_GROUP, "").trim();
+        if (!group.endsWith("-e2e")) {
+            throw new IllegalStateException(KAFKA_CONSUMER_GROUP
+                    + " must end with -e2e, so that it is never the consumer group of the service");
+        }
+        return group;
     }
 
     private static Properties read() {
