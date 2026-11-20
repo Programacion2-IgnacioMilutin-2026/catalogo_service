@@ -1,6 +1,6 @@
 # TASKS: C04 — Listar categorías
 
-SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Estado: en revisión, esperando la aprobación del usuario; la implementación sigue su autorización, tanda por tanda.
+SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01, autorizada el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C02 eran 492, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la aplicación en la prueba manual de TASK-11, que se corre con la integración apagada.
 
@@ -10,12 +10,19 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 1 · El orden en la base
 
-- [ ] **TASK-01 · El orden de D2 en la base**
+- [x] **TASK-01 · El orden de D2 en la base**
   - Alcance: la migración `V3__spanish_order_for_category_names.sql`, que crea la colación `spanish_insensitive` (ICU, `es-u-ks-level1`, no determinística) y se la asigna a `professional_categories.name` (P3). `ProfessionalCategoryRepository` suma `findAllOrderedByName()`; `JpaProfessionalCategoryRepository`, `findAllByOrderByNameAscIdAsc()`; y `JpaProfessionalCategoryRepositoryAdapter` lo implementa con el mapper existente. `CatalogRepositoryAdaptersTest` suma el orden. No se tocan el modelo, la entidad ni los mappers de persistencia.
   - Depende de: ninguna
   - Resuelve: base de RF-01 y RF-04; CA-02 (en la base)
   - Validación: línea base antes de tocar nada (`./mvnw -q clean test`, conteo en los XML). Después, `./mvnw test -Dtest=CatalogRepositoryAdaptersTest`: nombres en minúscula y mayúscula, con y sin tildes, uno con ñ, habilitadas y deshabilitadas, y dos iguales salvo mayúsculas o tildes, insertados en otro orden, vuelven en el orden de D2 con desempate por `id`; una tabla vacía devuelve una lista vacía. Los tests existentes de `catalog` siguen en verde (`./mvnw test -Dtest='catalogo/catalog/**/*Test'`). Prueba en negativo: `V3` sin asignar la colación a la columna, y el test del orden falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 1). Creada `V3__spanish_order_for_category_names.sql`, con la colación `spanish_insensitive` asignada a `professional_categories.name`. `findAllOrderedByName()` sumado al puerto y al adaptador, y `findAllByOrderByNameAscIdAsc()` al repositorio de Spring Data. `CatalogRepositoryAdaptersTest` suma `allCategoriesComeInSpanishAlphabeticalOrderWithTiesById` (diez categorías cargadas desordenadas; comprueba el orden de los `id` y todos los campos) y `withoutCategoriesTheOrderedListIsEmpty`.
+    - Línea base, antes de tocar nada: `./mvnw -q clean test`, 492 tests en 64 clases, 0 fallos ni errores.
+    - `./mvnw test -Dtest=CatalogRepositoryAdaptersTest`: 9 tests, 0 fallos. En el log, Flyway aplica `V1`, `V2` y `V3` ("now at version v3").
+    - `./mvnw test -Dtest='catalogo/catalog/**/*Test'`: 35 tests en 8 clases del slice, 0 fallos.
+    - Orden obtenido: Nunez (9), Nuñez (8), Nutrición (4), Ñandú (2), odontología (5), Óptica (3), optica (6), Óptica (10), pediatría (1), Psicología (7).
+    - Prueba en negativo: sin la línea `ALTER TABLE … COLLATE` en `V3`, falló el test del orden, porque la base devolvió otro orden en seis posiciones. Restaurada, `sha256sum -c` coincide. Como el mensaje del fallo mostraba objetos sin nombre, el test suma antes una comprobación por `id`, para que un fallo muestre el orden real.
+    - `./mvnw -q clean test`: 494 tests en 64 clases (492 + 2), 0 fallos ni errores, 130 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los imports entre slices son solo los de la fachada y el gateway de `synchronization`, ya autorizados: TASK-01 no suma ninguno.
 
 ## Etapa 2 · El caso de uso y sus piezas
 

@@ -107,3 +107,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
 - Test E2E de sincronizacion incremental.
 - Documentacion de SDD y decisiones para caso de uso C04-ListarCategorias.
+- Colacion de la base de datos, puerto y funcion en el repositorio para devolver las categorias en formato alfabetico en español.
