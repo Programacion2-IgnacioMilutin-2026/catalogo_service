@@ -88,8 +88,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nuevas variables confgurables en .en.example y application.yaml para que las utilice.
 - Documentacion de SDD del caso de uso C02-SincronizacionIncremental.
 - Resultados para catchUp, en slice 'Synchronization'.
+- Funcion a synchrinizationLock para tomar el lock pero epserar a que se libere.
 ### Removed 
-- Excepciones en slice 'Catalog' utilizadas para aplicar una versiond del catalogo, ahora devuelve un record con el error y resultado.
+- Excepciones en slice 'Catalog' utilizadas para aplicar una version del catalogo, ahora devuelve un record con el error y resultado.
 ### Changed
 - Ahora cuando falla la aplicar una version del catalogo (slice 'Catalog') devuelve un record de resultado. Esto para poder obtentener esoe resultado en la fachada 'Syncornization'.}
 - Ahora la actualizacion de la version esta en un archivo catchUp para que la sincronizacion incremental tambien lo pueda utilizar. En slice 'Synchronization'.
