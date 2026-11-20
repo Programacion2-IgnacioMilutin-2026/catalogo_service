@@ -1,6 +1,6 @@
 # TASKS: C02 — Sincronizar catálogo incrementalmente
 
-SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c02-sincronizacion-incremental/SPEC.md` (aprobada el 2026-11-19, con el ajuste de D6 del mismo día). PLAN: `docs/sdd/c02-sincronizacion-incremental/PLAN.md` (aprobado el 2026-11-19). Decisión: `docs/decisiones/004-aviso-de-kafka-hacia-synchronization.md`. Tareas aprobadas por el usuario el 2026-11-19; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01; tanda 2: TASK-02 y TASK-03; tanda 3: TASK-04, autorizadas el 2026-11-19; tanda 4: TASK-05; tanda 5: TASK-07; tanda 6: TASK-06 y TASK-08; tanda 7: TASK-09 y TASK-10; autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`); al empezar C02 hay 394. Ninguna tarea llama a la cátedra real, salvo TASK-14, que corre el usuario después de ver la lista de pedidos.
 
@@ -115,19 +115,27 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 8 · Integración con Kafka en contenedor
 
-- [ ] **TASK-09 · Kafka en contenedor para los tests**
+- [x] **TASK-09 · Kafka en contenedor para los tests**
   - Alcance: en `src/test/java/catalogo/`: Kafka de Testcontainers (`apache/kafka:4.2.1`), compartido por la suite, que se puede pausar y reanudar; una ayuda para publicar avisos como la cátedra y saber hasta dónde confirmó un grupo; un login de `FakeCatedraServer` cuya integración apunta a ese Kafka (y al Redis de test) (P9.1).
   - Depende de: ninguna
   - Resuelve: base de CA-01 a CA-03, CA-06, CA-07 y CA-09 a CA-13
   - Validación: un test de la ayuda: publica un aviso, un consumidor de prueba lo lee, y la ayuda informa la posición confirmada; pausar y reanudar funcionan. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 7). Creados, en `src/test/java/catalogo/catedra/`, `CatedraKafka` (Kafka `apache/kafka:4.2.1` de Testcontainers, compartido por la suite, que arranca la primera vez que se pide; `pause` y `unpause`) y `CatalogTopic` (un topic propio con el consumer group sugerido `alumnos-<nombre>-<uuid>`; `serviceConsumerGroup()` le suma `-catalog`; crear, publicar un aviso con el formato real, posición confirmada de un grupo, último offset y si un grupo tiene asignada la partición). `FakeCatedraServer.loginWithRedisAndKafka` arma un login cuya integración apunta al Redis de test y al topic. Escritos para catálogo, con la idea de las piezas de turnos.
+    - `CatedraKafkaTest` (2 tests, en verde): un aviso publicado lo lee un consumidor de prueba con el grupo del servicio, mientras lee el grupo figura con la partición asignada, y después de confirmar la ayuda informa la posición 1 de 1; con Kafka pausado no responde, y al reanudar se puede publicar de nuevo.
+    - Suite completa al cerrar la tanda: ver TASK-10.
 
-- [ ] **TASK-10 · Integración del consumo**
+- [x] **TASK-10 · Integración del consumo**
   - Alcance: tests `*IntegrationTest` con la aplicación completa, Kafka y Redis en contenedor y la cátedra simulada.
   - Depende de: TASK-08, TASK-09
   - Resuelve: CA-01, CA-02, CA-03
   - Validación: CA-01: el grupo `{kafkaConsumerGroupId}-catalog` aparece en el Kafka de test, y se procesa el aviso publicado después de empezar a consumir y no el de antes. CA-02: con un login del arranque degradado, el consumo arranca con una renovación exitosa. CA-03: con Kafka pausado al arrancar, el servicio atiende y el estado no cambia; al reanudar, se procesan los avisos publicados mientras tanto, y los warnings de reconexión quedan acotados. `./mvnw test` en verde.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 7). Tres clases en `catedra/infrastructure/kafka/`, una por escenario porque cada una necesita su propia configuración de la aplicación, con `@DirtiesContext` para que su consumidor no siga leyendo durante el resto de la suite:
+    - `CatalogConsumptionIntegrationTest` (CA-01): con un aviso publicado antes de arrancar y otro después de que el grupo tiene la partición asignada, se procesa solo el segundo (base vacía, completa sin leer Redis, Redis al día: `Updated[localVersion=57]`); el grupo que confirma es `{sugerido}-catalog`, en la posición 2, y el sugerido no tiene nada asignado.
+    - `CatalogConsumptionAfterDegradedLoginIntegrationTest` (CA-02): el login del arranque falla dos veces (`503`) y la sesión queda degradada, sin consumo; una renovación exitosa arranca el consumo y un aviso publicado después se procesa. El warning de un login con otros datos quedó probado en TASK-08.
+    - `CatalogConsumptionWithKafkaDownIntegrationTest` (CA-03): el servicio consume un aviso y confirma la posición 1; se detiene ese consumidor, se publica otro aviso y se pausa Kafka; arranca un consumidor nuevo, como en un reinicio, con Kafka sin responder: en 5 s no procesa nada, el servicio responde y el estado de sincronización no cambia; al reanudar Kafka, el consumidor nuevo sigue desde la posición confirmada (en el log: "Setting offset … to the committed offset FetchPosition{offset=1}") y procesa el aviso pendiente (`UpToDate[localVersion=57]`).
+    - **Lo que mostró CA-03 y cómo se cubrió el resto:** con Kafka pausado no hubo ningún warning de reconexión, porque un contenedor pausado acepta la conexión y no responde, y el cliente espera en lugar de reconectarse. Tampoco se puede publicar mientras está pausado: "los avisos publicados mientras tanto" son los publicados mientras el servicio no leía, y se procesan por la posición guardada. Para los warnings acotados (D11), `KafkaCatalogConsumerTest` suma un test con un puerto que rechaza la conexión: en 15 s, 9 warnings con nuestra configuración y 15 sin ella (medido con la prueba en negativo); el test exige como mucho 11.
+    - `./mvnw -q clean test`: 483 tests en 61 clases (477 + 2 de TASK-09 + 1 de reconexión + 3), 0 fallos ni errores; unos 88 s de tests.
+    - Pruebas en negativo, restauradas con `sha256sum` comprobado: `earliest` (CA-01 falló: se procesó el aviso de antes); `Renew` sin avisar (CA-02 falló: el consumo nunca arrancó); el contenedor sin confirmar los avisos, `AckMode.MANUAL` (CA-03 falló: no quedó la posición confirmada); sin el ajuste de reconexión (el test de reconexión falló con 15 warnings).
 
 - [ ] **TASK-11 · Integración de un aviso: recorrido y repetidos**
   - Alcance: tests de integración de punta a punta, del aviso publicado a la base.

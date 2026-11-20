@@ -107,6 +107,24 @@ class KafkaCatalogConsumerTest {
         assertThat(consumer.consuming()).isFalse();
     }
 
+    // Con Kafka rechazando la conexión, el cliente reintenta con esperas que crecen hasta 30 s: en 15 s dejó 9
+    // warnings. Con la espera máxima por defecto (1 s) dejó 15.
+    @Test
+    void withKafkaRefusingTheConnectionTheReconnectionWarningsAreSpacedOut(CapturedOutput output)
+            throws InterruptedException {
+        consumer = consumer(new CatedraKafkaProperties(true, Duration.ofMinutes(10), null));
+
+        consumer.integrationEnabled(FIRST);
+        awaitConsuming();
+        Thread.sleep(15_000);
+
+        long warnings = output.getOut().lines()
+                .filter(line -> line.contains("Connection to node") && line.contains("could not be established"))
+                .count();
+        System.out.println("Reconnection warnings in 15 s: " + warnings);
+        assertThat(warnings).isPositive().isLessThanOrEqualTo(11);
+    }
+
     private void awaitConsuming() throws InterruptedException {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         while (!consumer.consuming() && System.nanoTime() < deadline) {

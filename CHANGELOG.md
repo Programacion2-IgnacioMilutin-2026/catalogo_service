@@ -103,3 +103,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Caso de uso en slice 'Catedra' para enviar el aviso al slice 'Syncornization' para que lo utilice la sincronizacion incremental.
 - Listener para enterarse cuando el login tecnico ya termino. 
 - Consumer del topic de kafka.
+- Contenedro de kafka para los test.
+- Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
