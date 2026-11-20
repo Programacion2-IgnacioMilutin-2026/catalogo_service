@@ -1,6 +1,6 @@
 # TASKS: C04 — Listar categorías
 
-SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01, autorizada el 2026-11-20).
+SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01, y tanda 2: TASK-02 y TASK-03, autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C02 eran 492, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la aplicación en la prueba manual de TASK-11, que se corre con la integración apagada.
 
@@ -26,19 +26,26 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 2 · El caso de uso y sus piezas
 
-- [ ] **TASK-02 · Caso de uso, service y excepciones del slice**
+- [x] **TASK-02 · Caso de uso, service y excepciones del slice**
   - Alcance: `catalog/application/exception/CatalogException` (la base del slice, con su constructor `protected` con mensaje) y `CatalogNotInitializedException`; el puerto de entrada `GetAllProfessionalCategoriesUseCase` y `GetAllProfessionalCategoriesUseCaseImpl` (lee el estado por `CatalogSyncStateRepository`; sin inicializar, lanza la excepción; si no, devuelve `findAllOrderedByName()`; sin transacción, P5); `ProfessionalCategoryService` con `getAllProfessionalCategories()`. Sin controller ni seguridad.
   - Depende de: TASK-01
   - Resuelve: RF-01, RF-03, RF-04 y RF-06 en la aplicación; P4.2, P4.3, P5
   - Validación: `./mvnw test` en verde. Los chequeos de la skill (§12, del 1 al 5) sin resultados nuevos. El comportamiento lo prueban la entrada web (TASK-04) y la integración (TASK-06 y TASK-07): sin un test aparte del caso de uso, como dice el PLAN (P6).
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 2, autorizada ese día). Creados `CatalogException` (base del slice, solo con el constructor `protected` con mensaje, igual que la que se quitó en C03), `CatalogNotInitializedException`, el puerto `GetAllProfessionalCategoriesUseCase`, `GetAllProfessionalCategoriesUseCaseImpl` (lee el estado por `CatalogSyncStateRepository`, lanza la excepción si no está inicializado, y si no devuelve `findAllOrderedByName()`, sin `@Transactional`) y `ProfessionalCategoryService` (un método que delega en el puerto).
+    - Compila junto con TASK-03 (`./mvnw test -Dtest=ProfessionalCategoryDtoMapperTest`, `BUILD SUCCESS`).
+    - `./mvnw -q clean test`: 497 tests en 65 clases, 0 fallos ni errores, 124 s (incluye los 3 de TASK-03).
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices de antes (fachada y gateway de `synchronization`). El service depende solo del puerto de entrada, y el caso de uso solo de puertos de salida.
+    - El comportamiento del caso de uso todavía no tiene test: lo prueban TASK-04 y TASK-06, como estaba previsto.
 
-- [ ] **TASK-03 · La respuesta y su mapper**
+- [x] **TASK-03 · La respuesta y su mapper**
   - Alcance: `catalog/infrastructure/web/dto/ProfessionalCategoryResponse` (clase Lombok con `id`, `name`, `description` y `enabled`) y `catalog/infrastructure/web/mapper/ProfessionalCategoryDtoMapper` (solo `toResponse`, con el Builder; `null` devuelve `null`). `ProfessionalCategoryDtoMapperTest` (nuevo, skill §10).
   - Depende de: ninguna
   - Resuelve: RF-01; CA-03 (el mapper)
   - Validación: `./mvnw test -Dtest=ProfessionalCategoryDtoMapperTest`: ida y vuelta con todos los campos completos (`hasNoNullFieldsOrProperties`), `description` en `null` se conserva, y `null` da `null`. Prueba en negativo: quitar una línea del Builder, y el test falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 2). Creados `ProfessionalCategoryResponse` (clase Lombok con los cuatro campos), `ProfessionalCategoryDtoMapper` (`toResponse` con el Builder; `null` da `null`) y `ProfessionalCategoryDtoMapperTest` con `domainToResponseKeepsEveryExposedField`, `aCategoryWithoutDescriptionKeepsItEmpty` y `nullMapsToNull`.
+    - `./mvnw test -Dtest=ProfessionalCategoryDtoMapperTest`: 3 tests, 0 fallos.
+    - Prueba en negativo: sin la línea `.description(...)` del Builder, falló `domainToResponseKeepsEveryExposedField` ("field/property 'description' differ"); el test con la descripción en `null` siguió pasando, como corresponde. Restaurado, `sha256sum -c` coincide.
+    - Suite completa: la de TASK-02, 497 tests en 65 clases, 0 fallos.
 
 ## Etapa 3 · La entrada web
 
