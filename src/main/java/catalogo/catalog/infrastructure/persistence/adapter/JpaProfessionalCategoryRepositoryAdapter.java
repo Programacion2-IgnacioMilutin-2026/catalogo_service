@@ -36,4 +36,11 @@ public class JpaProfessionalCategoryRepositoryAdapter implements ProfessionalCat
             jpaProfessionalCategoryRepository.deleteByIdNotIn(ids);
         }
     }
+
+    @Override
+    public List<ProfessionalCategory> findAllByIds(Collection<Long> ids) {
+        return jpaProfessionalCategoryRepository.findAllById(ids).stream()
+                .map(professionalCategoryMapper::toDomainModel)
+                .collect(Collectors.toList());
+    }
 }

@@ -1,6 +1,8 @@
 package catalogo.catedra.infrastructure.client;
 
+import catalogo.catedra.domain.model.CatalogRedisPolicy;
 import catalogo.catedra.domain.model.CatalogSnapshotPolicy;
+import catalogo.catedra.domain.model.InitialLoginWait;
 import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,5 +23,17 @@ public class CatedraClientConfiguration {
         CatedraProperties.Snapshot snapshot = catedraProperties.snapshot();
         return new CatalogSnapshotPolicy(snapshot.maxAttempts(), snapshot.initialDelay(), snapshot.multiplier(),
                 snapshot.maxDelay());
+    }
+
+    @Bean
+    CatalogRedisPolicy catalogRedisPolicy(CatedraProperties catedraProperties) {
+        CatedraProperties.Redis redis = catedraProperties.redis();
+        return new CatalogRedisPolicy(redis.maxAttempts(), redis.initialDelay(), redis.multiplier(), redis.maxDelay());
+    }
+
+    @Bean
+    InitialLoginWait initialLoginWait(CatedraProperties catedraProperties) {
+        CatedraProperties.InitialLogin initialLogin = catedraProperties.initialLogin();
+        return new InitialLoginWait(initialLogin.maxWait(), initialLogin.pollInterval());
     }
 }

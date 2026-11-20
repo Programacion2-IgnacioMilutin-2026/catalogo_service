@@ -1,7 +1,7 @@
 package catalogo.catedra.domain.model;
 
-// Categoría tal como la entrega el snapshot de la cátedra.
-public record SnapshotCategory(
+// Categoría tal como la publica la cátedra, en el snapshot y en Redis.
+public record CatedraCategory(
         long id,
         String name,
         String description,

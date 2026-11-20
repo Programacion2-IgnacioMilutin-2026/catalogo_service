@@ -3,6 +3,7 @@ package catalogo.catedra.application.usecases;
 import catalogo.catedra.TechnicalIntegrations;
 import catalogo.catedra.domain.model.IntegrationState;
 import catalogo.catedra.domain.model.ProvisioningStatus;
+import catalogo.catedra.domain.model.TechnicalIntegration;
 import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import catalogo.catedra.domain.model.TechnicalLoginResult;
 import catalogo.catedra.domain.model.TechnicalSession;
@@ -20,6 +21,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,8 +37,9 @@ class StartTechnicalSessionUseCaseImplTest {
             MAX_ATTEMPTS, Duration.ofMillis(1), 2, Duration.ofMillis(5), Duration.ofSeconds(60));
     private final TechnicalSessionRepository repository = new InMemoryTechnicalSessionRepositoryAdapter();
     private final ScriptedLoginClient client = new ScriptedLoginClient();
+    private final List<TechnicalIntegration> notified = new ArrayList<>();
     private final StartTechnicalSessionUseCaseImpl useCase = new StartTechnicalSessionUseCaseImpl(
-            client, repository, policy, Clock.fixed(NOW, ZoneOffset.UTC));
+            client, repository, policy, Clock.fixed(NOW, ZoneOffset.UTC), notified::add);
 
     @Test
     void aProvisionedAndCompleteLoginEnablesTheSessionAtTheFirstAttempt() {
@@ -47,6 +51,47 @@ class StartTechnicalSessionUseCaseImplTest {
                 TechnicalSession.enabled(ScriptedLoginClient.TOKEN, TechnicalIntegrations.complete(), NOW));
         assertThat(repository.get()).isEqualTo(session);
         assertThat(client.calls()).isEqualTo(1);
+    }
+
+    @Test
+    void anEnabledSessionNotifiesItsIntegrationOnce() {
+        client.thenAnswer(new TechnicalLoginResult.Unavailable("HTTP 503")).thenAnswer(ScriptedLoginClient.success());
+
+        useCase.startTechnicalSession();
+
+        assertThat(notified).containsExactly(TechnicalIntegrations.complete());
+    }
+
+    @Test
+    void aLoginThatDoesNotEnableTheSessionNotifiesNobody() {
+        for (TechnicalLoginResult result : List.of(
+                new TechnicalLoginResult.ConfigurationError("rejected with HTTP 401"),
+                new TechnicalLoginResult.Unavailable("HTTP 503"),
+                new TechnicalLoginResult.Success(ScriptedLoginClient.TOKEN,
+                        TechnicalIntegrations.withStatus(ProvisioningStatus.PENDING)),
+                new TechnicalLoginResult.Success(ScriptedLoginClient.TOKEN,
+                        TechnicalIntegrations.without("kafkaCatalogTopic")))) {
+            TechnicalSession session = new StartTechnicalSessionUseCaseImpl(new ScriptedLoginClient().thenAnswer(result),
+                    repository, policy, Clock.fixed(NOW, ZoneOffset.UTC), notified::add).startTechnicalSession();
+            assertThat(session.isEnabled()).isFalse();
+        }
+
+        assertThat(notified).isEmpty();
+    }
+
+    @Test
+    void aListenerThatFailsDoesNotChangeTheLogin(CapturedOutput output) {
+        StartTechnicalSessionUseCaseImpl failing = new StartTechnicalSessionUseCaseImpl(
+                client, repository, policy, Clock.fixed(NOW, ZoneOffset.UTC), integration -> {
+                    throw new IllegalStateException("cannot start");
+                });
+        client.thenAnswer(ScriptedLoginClient.success());
+
+        TechnicalSession session = failing.startTechnicalSession();
+
+        assertThat(session.isEnabled()).isTrue();
+        assertThat(repository.get()).isEqualTo(session);
+        assertThat(output).contains("The enabled integration could not be notified: IllegalStateException");
     }
 
     @ParameterizedTest

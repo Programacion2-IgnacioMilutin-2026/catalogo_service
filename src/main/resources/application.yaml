@@ -20,3 +20,40 @@ catalogo:
     base-url: ${CATALOGO_CATEDRA_BASE_URL:}
     username: ${CATALOGO_CATEDRA_USERNAME:}
     password: ${CATALOGO_CATEDRA_PASSWORD:}
+    connect-timeout: ${CATALOGO_CATEDRA_CONNECT_TIMEOUT:5s}
+    read-timeout: ${CATALOGO_CATEDRA_READ_TIMEOUT:10s}
+    login:
+      max-attempts: ${CATALOGO_CATEDRA_LOGIN_MAX_ATTEMPTS:5}
+      initial-delay: ${CATALOGO_CATEDRA_LOGIN_INITIAL_DELAY:1s}
+      multiplier: ${CATALOGO_CATEDRA_LOGIN_MULTIPLIER:2}
+      max-delay: ${CATALOGO_CATEDRA_LOGIN_MAX_DELAY:30s}
+      min-interval: ${CATALOGO_CATEDRA_LOGIN_MIN_INTERVAL:60s}
+    initial-login:
+      max-wait: ${CATALOGO_CATEDRA_INITIAL_LOGIN_MAX_WAIT:2m}
+      poll-interval: ${CATALOGO_CATEDRA_INITIAL_LOGIN_POLL_INTERVAL:200ms}
+    snapshot:
+      connect-timeout: ${CATALOGO_CATEDRA_SNAPSHOT_CONNECT_TIMEOUT:5s}
+      read-timeout: ${CATALOGO_CATEDRA_SNAPSHOT_READ_TIMEOUT:10s}
+      max-attempts: ${CATALOGO_CATEDRA_SNAPSHOT_MAX_ATTEMPTS:5}
+      initial-delay: ${CATALOGO_CATEDRA_SNAPSHOT_INITIAL_DELAY:1s}
+      multiplier: ${CATALOGO_CATEDRA_SNAPSHOT_MULTIPLIER:2}
+      max-delay: ${CATALOGO_CATEDRA_SNAPSHOT_MAX_DELAY:30s}
+    redis:
+      connect-timeout: ${CATALOGO_CATEDRA_REDIS_CONNECT_TIMEOUT:5s}
+      command-timeout: ${CATALOGO_CATEDRA_REDIS_COMMAND_TIMEOUT:2s}
+      max-attempts: ${CATALOGO_CATEDRA_REDIS_MAX_ATTEMPTS:3}
+      initial-delay: ${CATALOGO_CATEDRA_REDIS_INITIAL_DELAY:1s}
+      multiplier: ${CATALOGO_CATEDRA_REDIS_MULTIPLIER:2}
+      max-delay: ${CATALOGO_CATEDRA_REDIS_MAX_DELAY:30s}
+    kafka:
+      enabled: ${CATALOGO_CATEDRA_KAFKA_ENABLED:true}
+      max-poll-interval: ${CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL:10m}
+  synchronization:
+    verification:
+      enabled: ${CATALOGO_VERIFICATION_ENABLED:true}
+      interval: ${CATALOGO_VERIFICATION_INTERVAL:5m}
+      persistence-retry:
+        max-attempts: ${CATALOGO_VERIFICATION_PERSISTENCE_MAX_ATTEMPTS:3}
+        initial-delay: ${CATALOGO_VERIFICATION_PERSISTENCE_INITIAL_DELAY:1s}
+        multiplier: ${CATALOGO_VERIFICATION_PERSISTENCE_MULTIPLIER:2}
+        max-delay: ${CATALOGO_VERIFICATION_PERSISTENCE_MAX_DELAY:30s}

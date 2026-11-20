@@ -7,18 +7,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// Profesional dentro de la respuesta del snapshot.
+// Categoría en JSON, como viene en el snapshot y en Redis.
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class SnapshotProfessionalResponse {
+public class CatedraCategoryResponse {
 
     private Long id;
-    private Long categoryId;
-    private String firstName;
-    private String lastName;
+    private String name;
+    private String description;
     private Boolean enabled;
 }

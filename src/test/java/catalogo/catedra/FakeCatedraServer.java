@@ -89,6 +89,24 @@ public final class FakeCatedraServer implements AutoCloseable {
         return Response.of(200, JSON.writeValueAsString(login));
     }
 
+    public static Response loginWithRedis(String host, int port, String username, String password) {
+        ObjectNode login = loginTree();
+        integrationOf(login).put("redisHost", host).put("redisPort", port).put("redisUsername", username)
+                .put("redisPassword", password);
+        return Response.of(200, JSON.writeValueAsString(login));
+    }
+
+    public static Response loginWithRedisAndKafka(String redisHost, int redisPort, String redisUsername,
+                                                  String redisPassword, CatalogTopic topic) {
+        ObjectNode login = loginTree();
+        integrationOf(login).put("redisHost", redisHost).put("redisPort", redisPort)
+                .put("redisUsername", redisUsername).put("redisPassword", redisPassword)
+                .put("kafkaBootstrapServers", CatedraKafka.bootstrapServers())
+                .put("kafkaCatalogTopic", topic.topic())
+                .put("kafkaConsumerGroupId", topic.suggestedConsumerGroup());
+        return Response.of(200, JSON.writeValueAsString(login));
+    }
+
     public static Response loginWithUnknownFields() {
         ObjectNode login = loginTree();
         login.put("somethingNew", "value");

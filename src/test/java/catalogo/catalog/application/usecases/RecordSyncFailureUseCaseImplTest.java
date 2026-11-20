@@ -6,7 +6,6 @@ import catalogo.catalog.CatalogTables;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
 import catalogo.catalog.domain.model.SyncErrorType;
-import catalogo.catalog.domain.model.SyncType;
 import catalogo.catalog.domain.ports.in.RecordSyncFailureUseCase;
 import catalogo.catalog.domain.ports.in.ReplaceCatalogUseCase;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +52,7 @@ class RecordSyncFailureUseCaseImplTest {
                 List.of(CatalogSamples.weeklySchedule(21, professional)));
         Instant lastSuccess = instant(tables.syncState(), "last_successful_sync_at");
 
-        recordSyncFailureUseCase.recordSyncFailure(SyncType.FULL, SyncErrorType.SOURCE_UNAVAILABLE);
+        recordSyncFailureUseCase.recordSyncFailure(SyncErrorType.SOURCE_UNAVAILABLE);
 
         Map<String, Object> state = tables.syncState();
         assertThat(state)
@@ -68,11 +67,12 @@ class RecordSyncFailureUseCaseImplTest {
 
     @Test
     void aFailureBeforeAnySuccessIsRecordedAndTheCatalogStaysNotInitialized() {
-        recordSyncFailureUseCase.recordSyncFailure(SyncType.FULL, SyncErrorType.INTEGRATION_REJECTED);
+        recordSyncFailureUseCase.recordSyncFailure(SyncErrorType.INTEGRATION_REJECTED);
 
         assertThat(tables.syncState())
                 .containsEntry("local_version", null)
                 .containsEntry("last_successful_sync_at", null)
+                .containsEntry("last_sync_type", null)
                 .containsEntry("last_sync_result", "ERROR")
                 .containsEntry("last_error_type", "INTEGRATION_REJECTED");
     }

@@ -6,6 +6,7 @@ import catalogo.catedra.CatalogSnapshots;
 import catalogo.catedra.FakeCatedraServer;
 import catalogo.catedra.domain.model.SnapshotFetchResult;
 import catalogo.catedra.infrastructure.client.mapper.CatalogSnapshotMapper;
+import catalogo.catedra.infrastructure.client.mapper.CatedraEntityMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -130,7 +131,10 @@ class CatedraSnapshotClientAdapterTest {
                 FakeCatedraServer.TEST_PASSWORD, Duration.ofSeconds(2), Duration.ofSeconds(2),
                 new CatedraProperties.Login(5, Duration.ofSeconds(1), 2, Duration.ofSeconds(30), Duration.ofSeconds(60)),
                 new CatedraProperties.Snapshot(Duration.ofSeconds(2), READ_TIMEOUT, 5, Duration.ofSeconds(1), 2,
-                        Duration.ofSeconds(30)));
-        return new CatedraSnapshotClientAdapter(properties, new CatalogSnapshotMapper());
+                        Duration.ofSeconds(30)),
+                new CatedraProperties.Redis(Duration.ofSeconds(2), Duration.ofSeconds(2), 3, Duration.ofSeconds(1), 2,
+                        Duration.ofSeconds(30)),
+                new CatedraProperties.InitialLogin(Duration.ofMinutes(2), Duration.ofMillis(200)));
+        return new CatedraSnapshotClientAdapter(properties, new CatalogSnapshotMapper(new CatedraEntityMapper()));
     }
 }

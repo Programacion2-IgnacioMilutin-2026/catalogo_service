@@ -56,3 +56,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Documentacion de dominio y secuencia debido a decisoones tomadas acerca de la sincronziacion completa.
 - El pom.xml se actualizo para que el test E2e.
+
+## 2026-11-18
+### Added 
+- Documentacion de SDD del caso de uso C03-VerificacionPeriodica.
+- CatedraEntityMapper, verificacion de formatos de la catedra conjunta unificada tanto para el snapshot como para redis. 
+- Test para CatedraEntityMapper.
+- Lectura y escritura que realiza la verificacion. Solo escribe si esta al dia y lo ultimo que registra es un fallo.
+- Archivos para aplicar una sincronizacion incremental, verificando que no rompa la integridad de la base de datos. Tambien sus test. Todo esto en slice 'Catalog'.
+- Excepciones del slice 'Catalog'.
+- Dependencias en pom.xml incluy lettuce-core en vez del starter de redis.
+- En tests un redis simulado para no utlizar el real en los tests.
+- Modelos, politicas y mapper que valida para redis y sus tests en slice 'Catedra'.
+- Cliente de Redis, su adaptador y sus tests en slice 'Catedra'.
+### Changed 
+- Documentacion actualizada debido decisiones tomadas para aplicar el casod e uso C03-VerificacionPeriodica.
+- Se renombraron los modelos del snapshot de categoria, profesional y horario semanal del slice 'Catedra' a CatedraCategory y asi. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacio por parte de ambos.
+- Se renombraron los dto de respuesta del cliente del snapshot de categoria, profesional y horario semanal del slice 'Catedra' con el prefijo 'Catedra'. Esto debido a que tambien lo utilzara Redis por lo que se necesita un nombre acorde a la utilizacion por parte de ambos.
+- CatalogSnapshotResponse y CatalogSnapshot utilizan lo nuevos nombres. 
+- Se adaptaron los tests al cambio de nombre de los archivos y clases.
+- Ahora CatalogSnapshotMapper solo valida lo del snapshot no los formatos de las entidades, se actualizaron y borraron algunos de sus tests debido a estos cambios. 
+- Modificacion de archivos para que un fracaso no cambie el ultimo tipo de sincronizacion exitosa. Actualizados y añadidos tests por esto.
+
+## 2026-11-19
+### Added 
+- Lector de redis e implementacion de los casos de uso para leer redis en slice 'Catedra'.
+- Configuracion para esperar a que se realice el login tecnico.
+- Verificador de la version del catalogo y aplica los cambios si es necesario, en slice 'Syncronization'.
+- Disparador periodico de la verificacion en slice 'Syncronization'.
+- Tests de integracion para C03-VerificacionPerioca. 
+- Nuevas variables confgurables en .en.example y application.yaml para que las utilice.
+- Documentacion de SDD del caso de uso C02-SincronizacionIncremental.
+- Resultados para catchUp, en slice 'Synchronization'.
+- Funcion a synchrinizationLock para tomar el lock pero epserar a que se libere.
+- Entidad de ProcessedEvent con repsoitorio y demas en slice 'Synchronization', para alamcenar los avisos de la catedra que ya se procesaron.
+### Removed 
+- Excepciones en slice 'Catalog' utilizadas para aplicar una version del catalogo, ahora devuelve un record con el error y resultado.
+### Changed
+- Ahora cuando falla la aplicar una version del catalogo (slice 'Catalog') devuelve un record de resultado. Esto para poder obtentener esoe resultado en la fachada 'Syncornization'.}
+- Ahora la actualizacion de la version esta en un archivo catchUp para que la sincronizacion incremental tambien lo pueda utilizar. En slice 'Synchronization'.
+
+## 2026-11-20
+### Added 
+- Caso de uso de la sincronizacion incremental en slice 'Synchronization', con sus tests.
+- Lectura y validacion del aviso actualizacion del catalogo en slice 'Catedra'.
+- Caso de uso en slice 'Catedra' para enviar el aviso al slice 'Syncornization' para que lo utilice la sincronizacion incremental.
+- Listener para enterarse cuando el login tecnico ya termino. 
+- Consumer del topic de kafka.
+- Contenedro de kafka para los test.
+- Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
+- Test E2E de sincronizacion incremental.

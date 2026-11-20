@@ -36,4 +36,11 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
             jpaProfessionalRepository.deleteByIdNotIn(ids);
         }
     }
+
+    @Override
+    public List<Professional> findAllByIds(Collection<Long> ids) {
+        return jpaProfessionalRepository.findAllById(ids).stream()
+                .map(professionalMapper::toDomainModel)
+                .collect(Collectors.toList());
+    }
 }

@@ -1,9 +1,9 @@
 package catalogo.catedra;
 
 import catalogo.catedra.domain.model.CatalogSnapshot;
-import catalogo.catedra.domain.model.SnapshotCategory;
-import catalogo.catedra.domain.model.SnapshotProfessional;
-import catalogo.catedra.domain.model.SnapshotWeeklySchedule;
+import catalogo.catedra.domain.model.CatedraCategory;
+import catalogo.catedra.domain.model.CatedraProfessional;
+import catalogo.catedra.domain.model.CatedraWeeklySchedule;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -17,21 +17,21 @@ public final class CatalogSnapshots {
     private CatalogSnapshots() {
     }
 
-    public static List<SnapshotCategory> categories() {
+    public static List<CatedraCategory> categories() {
         return List.of(
-                new SnapshotCategory(501, "Kinesiología",
+                new CatedraCategory(501, "Kinesiología",
                         "Rehabilitación física y tratamiento de lesiones musculares", true),
-                new SnapshotCategory(502, "Nutrición", "Planes de alimentación y control de peso", true));
+                new CatedraCategory(502, "Nutrición", "Planes de alimentación y control de peso", true));
     }
 
-    public static List<SnapshotProfessional> professionals() {
+    public static List<CatedraProfessional> professionals() {
         return List.of(
-                new SnapshotProfessional(601, 501, "Valentina", "Ibáñez", true),
-                new SnapshotProfessional(602, 501, "Tomás", "Ferreyra", false),
-                new SnapshotProfessional(603, 502, "Lucía", "Núñez", true));
+                new CatedraProfessional(601, 501, "Valentina", "Ibáñez", true),
+                new CatedraProfessional(602, 501, "Tomás", "Ferreyra", false),
+                new CatedraProfessional(603, 502, "Lucía", "Núñez", true));
     }
 
-    public static List<SnapshotWeeklySchedule> weeklySchedules() {
+    public static List<CatedraWeeklySchedule> weeklySchedules() {
         return List.of(
                 schedule(701, 601, DayOfWeek.MONDAY, "08:00", "12:00", 30, true),
                 schedule(702, 601, DayOfWeek.THURSDAY, "14:00", "18:00", 30, true),
@@ -43,9 +43,9 @@ public final class CatalogSnapshots {
         return new CatalogSnapshot(VERSION, categories(), professionals(), weeklySchedules());
     }
 
-    public static SnapshotWeeklySchedule schedule(long id, long professionalId, DayOfWeek day, String start,
+    public static CatedraWeeklySchedule schedule(long id, long professionalId, DayOfWeek day, String start,
                                                   String end, int slotMinutes, boolean enabled) {
-        return new SnapshotWeeklySchedule(id, professionalId, day, LocalTime.parse(start), LocalTime.parse(end),
+        return new CatedraWeeklySchedule(id, professionalId, day, LocalTime.parse(start), LocalTime.parse(end),
                 slotMinutes, enabled);
     }
 }

@@ -4,6 +4,7 @@ import catalogo.MutableClock;
 import catalogo.catedra.TechnicalIntegrations;
 import catalogo.catedra.domain.model.IntegrationState;
 import catalogo.catedra.domain.model.ProvisioningStatus;
+import catalogo.catedra.domain.model.TechnicalIntegration;
 import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import catalogo.catedra.domain.model.TechnicalLoginResult;
 import catalogo.catedra.domain.model.TechnicalSession;
@@ -42,7 +43,55 @@ class RenewTechnicalSessionUseCaseImplTest {
     private final MutableClock clock = new MutableClock(START);
     private final TechnicalSessionRepository repository = new InMemoryTechnicalSessionRepositoryAdapter();
     private final ScriptedLoginClient client = new ScriptedLoginClient();
-    private final RenewTechnicalSessionUseCaseImpl useCase = new RenewTechnicalSessionUseCaseImpl(client, repository, policy, clock);
+    private final List<TechnicalIntegration> notified = new ArrayList<>();
+    private final RenewTechnicalSessionUseCaseImpl useCase = new RenewTechnicalSessionUseCaseImpl(client, repository,
+            policy, clock, notified::add);
+
+    @Test
+    void aRenewalThatEnablesTheSessionNotifiesItsIntegration() {
+        repository.save(TechnicalSession.degraded(START));
+        client.thenAnswer(ScriptedLoginClient.success("token-b"));
+        clock.advance(MIN_INTERVAL);
+
+        useCase.renewTechnicalSession(null);
+
+        assertThat(notified).containsExactly(TechnicalIntegrations.complete());
+    }
+
+    @Test
+    void anAlreadyEnabledSessionIsReturnedWithoutNotifying() {
+        repository.save(enabled("token-a"));
+
+        useCase.renewTechnicalSession(null);
+
+        assertThat(notified).isEmpty();
+    }
+
+    @Test
+    void aRenewalThatDoesNotEnableTheSessionNotifiesNobody() {
+        repository.save(TechnicalSession.degraded(START));
+        client.thenAnswer(new TechnicalLoginResult.Unavailable("HTTP 503"));
+        clock.advance(MIN_INTERVAL);
+
+        assertThat(useCase.renewTechnicalSession(null)).isEmpty();
+        assertThat(notified).isEmpty();
+    }
+
+    @Test
+    void aListenerThatFailsDoesNotChangeTheRenewal(CapturedOutput output) {
+        RenewTechnicalSessionUseCaseImpl failing = new RenewTechnicalSessionUseCaseImpl(client, repository, policy,
+                clock, integration -> {
+                    throw new IllegalStateException("cannot start");
+                });
+        repository.save(TechnicalSession.degraded(START));
+        client.thenAnswer(ScriptedLoginClient.success("token-b"));
+        clock.advance(MIN_INTERVAL);
+
+        Optional<TechnicalSession> renewed = failing.renewTechnicalSession(null);
+
+        assertThat(renewed).map(TechnicalSession::token).contains("token-b");
+        assertThat(output).contains("The enabled integration could not be notified: IllegalStateException");
+    }
 
     @Test
     void aDegradedSessionIsNotRenewedBeforeTheMinimumIntervalAndIsRenewedAfterIt() {
