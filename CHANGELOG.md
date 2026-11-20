@@ -108,3 +108,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test E2E de sincronizacion incremental.
 - Documentacion de SDD y decisiones para caso de uso C04-ListarCategorias.
 - Colacion de la base de datos, puerto y funcion en el repositorio para devolver las categorias en formato alfabetico en español.
+- Caso de uso, service y excepciones para listar categorias en slice 'Catalog'.
