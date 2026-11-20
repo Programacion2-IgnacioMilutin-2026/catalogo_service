@@ -1,6 +1,6 @@
 # TASKS: C04 — Listar categorías
 
-SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tanda 1: TASK-01, y tanda 2: TASK-02 y TASK-03, autorizadas el 2026-11-20).
+SPEC: `docs/sdd/c04-listar-categorias/SPEC.md` (aprobada el 2026-11-20). PLAN: `docs/sdd/c04-listar-categorias/PLAN.md` (aprobado el 2026-11-20). Decisiones: `docs/decisiones/005-manejador-global-de-errores.md` y `docs/decisiones/006-resultados-sellados-o-excepciones.md`. Tareas aprobadas por el usuario el 2026-11-20, junto con el ajuste que mueve la etapa 1 del PLAN (el test en rojo) al comienzo de TASK-04; la implementación sigue su autorización, tanda por tanda (tandas 1 a 3: TASK-01 a TASK-05, autorizadas el 2026-11-20).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C02 eran 492, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la aplicación en la prueba manual de TASK-11, que se corre con la integración apagada.
 
@@ -49,21 +49,31 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 3 · La entrada web
 
-- [ ] **TASK-04 · Controller, seguridad mínima y formato de errores**
+- [x] **TASK-04 · Controller, seguridad mínima y formato de errores**
   - Alcance:
     1. Primero, sin código de producción nuevo: `ProfessionalCategoriesIntegrationTest` (nuevo) con su primer escenario (copia inicializada con categorías y pedido sin encabezado: `200` con la lista), y `CatalogTables` con lo que haga falta para cargar la copia con SQL directo. Se corre en rojo y se registra qué responde hoy la seguridad por defecto, que la SPEC dejó para comprobar.
     2. Después: `config/SecurityConfig` (P1), `config/ApiExceptionHandler` (P2, decisión 005), `catalog/infrastructure/web/controller/ProfessionalCategoryController` (traduce `CatalogNotInitializedException` a `ResponseStatusException` `503` con `code` `CATALOG_NOT_INITIALIZED`), y `ProfessionalCategoryControllerTest` (nuevo, `@WebMvcTest` con `SecurityConfig` y el mapper importados y el service simulado).
   - Depende de: TASK-02, TASK-03
   - Resuelve: RF-01 a RF-05 en la web; CA-01 (forma del JSON), CA-03, CA-04, CA-06 y CA-08 (forma del `503` y del `500`); el pendiente de la SPEC sobre la seguridad por defecto
   - Validación: el escenario del paso 1 falla por el estado HTTP, no por compilación ni por el contexto, y queda registrado el estado y el cuerpo observados. Después, `./mvnw test -Dtest='ProfessionalCategoryControllerTest,ProfessionalCategoriesIntegrationTest'` en verde: el JSON con los cuatro campos y ningún otro, `"description": null` presente, los parámetros de consulta no cambian la respuesta, `503` y `500` en `application/problem+json` con su `code` y sin detalles internos, y el error no previsto en el log. Pruebas en negativo: el controller traduce a `500` en lugar de `503`; y el manejador sin la captura de lo no previsto.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 3, autorizada ese día).
+    - Paso 1: `CatalogTables` suma `insertCategory` e `initializeAt(versión)`, y `ProfessionalCategoriesIntegrationTest` (nuevo) su primer escenario, `anInitializedCopyListsEveryCategoryWithItsFields`. Corrido antes de crear la seguridad y el controller, falló por el estado: **`401 Unauthorized`, sin cuerpo, con `WWW-Authenticate: Basic realm="Realm"` y una cookie `JSESSIONID`**. En el log no hay una contraseña generada. Queda comprobado lo que la SPEC dejó deducido: la cadena por defecto de Spring Boot exige autenticación básica o por formulario y no crea un usuario.
+    - Paso 2: creados `config/SecurityConfig` (sin sesión; `PUBLIC_ENDPOINTS` con `GET /api/professional-categories`; el resto exige autenticación; CSRF como viene), `config/ApiExceptionHandler` (hereda de `ResponseEntityExceptionHandler`; `@ExceptionHandler(Exception.class)` deja `Unexpected error` en el log con la traza y responde `500` `INTERNAL_ERROR` con un texto fijo) y `ProfessionalCategoryController` (atrapa `CatalogNotInitializedException` y lanza `ResponseStatusException` `503` con `code` `CATALOG_NOT_INITIALIZED`). `ProfessionalCategoryControllerTest` (nuevo, `@WebMvcTest` con `SecurityConfig` y el mapper importados y el service simulado con `@MockitoBean`): `theListHasTheFourFieldsOfEachCategoryAndNothingElse` (JSON comparado en modo estricto), `aCategoryWithoutDescriptionKeepsTheFieldWithNull` (`"description":null` en el cuerpo), `queryParametersDoNotChangeTheResponse`, `aCatalogNotInitializedAnswers503AsAProblem` y `aDatabaseFailureAnswers500WithoutInternalDetailsAndIsLogged`.
+    - `./mvnw test -Dtest='ProfessionalCategoryControllerTest,ProfessionalCategoriesIntegrationTest'`: 6 tests, 0 fallos; el escenario del paso 1 ahora responde `200` con la lista en el orden de D2.
+    - Prueba en negativo 1: el controller con `INTERNAL_SERVER_ERROR` en lugar de `SERVICE_UNAVAILABLE`: falló `aCatalogNotInitializedAnswers503AsAProblem` ("Status expected:<503> but was:<500>").
+    - Prueba en negativo 2: el manejador sin `@ExceptionHandler(Exception.class)`: falló con error `aDatabaseFailureAnswers500WithoutInternalDetailsAndIsLogged`, porque la excepción se escapó con su mensaje interno (host y tabla). El caso del `503` siguió pasando, porque lo resuelve la parte heredada del manejador. Restaurados, `sha256sum -c` coincide en los dos archivos.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports de `synchronization`; `catalogo.config` no importa nada de los slices; el controller no importa puertos ni casos de uso.
+    - Suite completa: la de TASK-05.
 
-- [ ] **TASK-05 · El encabezado `Authorization` se ignora**
+- [x] **TASK-05 · El encabezado `Authorization` se ignora**
   - Alcance: `src/test/java/catalogo/TestTokens` (nuevo): una clave RSA generada en cada corrida y tokens bien firmados, vencidos, alterados o que no son un JWT, armados con la librería de JWT que ya trae el resource server. `ProfessionalCategoryControllerTest` suma un pedido por variante del encabezado, también `Basic …`. Sin cambios en el código de producción.
   - Depende de: TASK-04
   - Resuelve: RF-02; CA-05; deja `TestTokens` para la validación del JWT
   - Validación: `./mvnw test -Dtest=ProfessionalCategoryControllerTest`: cada respuesta es igual a la del pedido sin encabezado. Prueba en negativo: agregar a la cadena de seguridad la lectura del token con un decodificador que rechaza todo, que es justo el riesgo anotado para la validación del JWT, y los tests de los tokens inválidos fallan.
-  - Resultado: pendiente
+  - Resultado: 2026-11-20 (tanda 3). Creado `src/test/java/catalogo/TestTokens` (clave RSA de 2048 bits generada en cada corrida; `valid()`, `expired()` y `altered()`, la firma de un token con los datos de otro; con nimbus-jose-jwt, que ya trae el resource server). `ProfessionalCategoryControllerTest` suma `anyAuthorizationHeaderGetsTheSameResponseAsNoHeader`, parametrizado con un token bien firmado, uno vencido, uno alterado, `Bearer not-a-token` y `Basic …`.
+    - `./mvnw test -Dtest=ProfessionalCategoryControllerTest`: 10 tests, 0 fallos (los 5 de TASK-04 y las 5 variantes).
+    - Prueba en negativo: `SecurityConfig` con `.oauth2ResourceServer(...)` y un decodificador que rechaza todo: fallaron las 4 variantes `Bearer` con `401` en la ruta pública, y `Basic` siguió pasando, porque ese filtro solo lee tokens `Bearer`. Confirma con el código real el riesgo anotado en la SPEC para la validación del JWT, y que CA-05 lo detecta. Restaurado, `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 508 tests en 67 clases (497 + 1 de integración + 10 del controller), 0 fallos ni errores, 126 s.
 
 ## Etapa 4 · La integración con la aplicación
 

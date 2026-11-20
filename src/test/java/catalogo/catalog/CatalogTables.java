@@ -24,6 +24,15 @@ public final class CatalogTables {
                 + "last_error_type = NULL");
     }
 
+    public void insertCategory(long id, String name, String description, boolean enabled) {
+        jdbcTemplate.update("INSERT INTO professional_categories (id, name, description, enabled) VALUES (?, ?, ?, ?)",
+                id, name, description, enabled);
+    }
+
+    public void initializeAt(long version) {
+        jdbcTemplate.update("UPDATE catalog_sync_state SET local_version = ?", version);
+    }
+
     public List<Map<String, Object>> categories() {
         return jdbcTemplate.queryForList("SELECT * FROM professional_categories ORDER BY id");
     }
