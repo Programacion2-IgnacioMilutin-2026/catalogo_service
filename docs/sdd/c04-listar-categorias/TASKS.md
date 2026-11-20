@@ -122,6 +122,10 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - Prueba en negativo: el manejador sin `@ExceptionHandler(Exception.class)`. Falló con "Status expected:<500> but was:<403 FORBIDDEN>", el mismo reenvío a `/error` de TASK-07. Restaurado, `sha256sum -c` coincide.
     - Al terminar, ningún contenedor de PostgreSQL queda corriendo (`docker ps`).
     - `./mvnw -q clean test`: 522 tests en 70 clases (520 + 1 + 1), 0 fallos ni errores, 138 s.
+    - **Corrección del 2026-11-20, después del cierre (autorizada por el usuario):** en GitHub Actions el test falló: los dos pedidos dieron `500`, pero el log no tenía "Connection is not available, request timed out". La causa: Hikari entrega sin comprobar una conexión usada hace menos de 500 ms. En la máquina de desarrollo detener la base tardaba unos 0,8 s, más que ese margen, y el segundo pedido comprobaba las conexiones; en GitHub, más rápido, los dos pedidos recibieron conexiones recién usadas y fallaron en el acto. Turnos ya lo tenía anotado en su `CLAUDE.md`, y no se aplicó.
+      - Reproducción: con `com.zaxxer.hikari.aliveBypassWindowMs` en 10 s, puesta solo para la prueba, el test sin cambios falló con el mismo mensaje que en GitHub, y en el log los dos pedidos tenían "An I/O error occurred while sending to the backend". Restaurado, `sha256sum -c` coincide.
+      - Arreglo: el test espera 1 s entre los dos pedidos, con Awaitility (`pollDelay`, sin `Thread.sleep`). El segundo pedido queda obligado a comprobar las conexiones y a esperar al pool.
+      - Cinco corridas seguidas: las cinco pasaron, y en todas apareció el mensaje del pool. En tres, el primer pedido falló por la conexión cortada, y en dos también fue al pool: el camino del primero depende de la máquina; el del segundo, ya no.
 
 ## Etapa 5 · Regresión y prueba manual
 

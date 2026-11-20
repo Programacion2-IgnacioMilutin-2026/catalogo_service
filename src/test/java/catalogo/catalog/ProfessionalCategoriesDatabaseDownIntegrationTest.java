@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 // El listado con la base detenida responde 500 sin detalles internos.
 @ExtendWith(OutputCaptureExtension.class)
@@ -73,6 +74,9 @@ class ProfessionalCategoriesDatabaseDownIntegrationTest {
         POSTGRES.stop();
 
         assertInternalErrorWithoutDetails();
+        // Hikari entrega sin comprobar una conexión usada hace menos de 500 ms. Pasado ese margen, el pedido
+        // siguiente comprueba las conexiones, las encuentra muertas y espera al pool hasta su tiempo.
+        await().pollDelay(Duration.ofSeconds(1)).atMost(Duration.ofSeconds(2)).until(() -> true);
         assertInternalErrorWithoutDetails();
         assertThat(output).contains("Unexpected error").contains("Connection is not available, request timed out");
     }
