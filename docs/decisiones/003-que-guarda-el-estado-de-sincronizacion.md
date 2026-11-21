@@ -1,7 +1,7 @@
 # 003 — Qué guarda el estado de sincronización y cuándo cambia
 
 - **Fecha:** 2026-11-19
-- **Funcionalidad:** C01 — Sincronizar catálogo completo (D7 de su SPEC) y C03 — Verificar periódicamente la versión del catálogo (D4, D5 y D11 de su SPEC). Vale para C02 y para lo que muestre C07.
+- **Funcionalidad:** C01 — Sincronizar catálogo completo (D7 de su SPEC) y C03 — Verificar periódicamente la versión del catálogo (D4, D5 y D11 de su SPEC). Vale para C02 y para lo que muestre C07. Ampliada el 2026-11-20 con las filas de C02 (D1, D2, D8 y D9 de su SPEC), sin cambiar las anteriores.
 - **Estado:** aceptada
 
 ## Situación
@@ -30,11 +30,15 @@ La fila responde a dos preguntas. La primera es **qué tiene la copia local**: `
 | Lo que pasa | Qué cambia | Qué no cambia | Cómo se escribe |
 | --- | --- | --- | --- |
 | Una sincronización completa termina bien (C01) | Todo: la versión, los dos instantes, `FULL`, `SUCCESS` y el error vacío | — | En la misma transacción que los datos |
-| Se aplica una versión incremental (C03, y C02 después) | Todo: la versión, los dos instantes, `INCREMENTAL`, `SUCCESS` y el error vacío | — | En la misma transacción que los datos de esa versión, una vez por versión (D5) |
-| Un fracaso, de C01 o de C03 | `lastSyncAt`, `ERROR` y el tipo de error | La versión, el último éxito y **el tipo** (D11) | En una escritura propia. Si la base tampoco la acepta, queda solo en el log |
-| Una verificación encuentra el catálogo al día, y el último resultado era `ERROR` | `lastSyncAt`, `SUCCESS` y el error vacío | La versión, el último éxito y el tipo (D4 y D11) | En una transacción propia |
-| Una verificación encuentra el catálogo al día, y el último resultado era `SUCCESS` | Nada; queda en el log | Todo (D4) | — |
+| Se aplica una versión incremental (C03 y C02) | Todo: la versión, los dos instantes, `INCREMENTAL`, `SUCCESS` y el error vacío | — | En la misma transacción que los datos de esa versión, una vez por versión (D5) |
+| Un fracaso, de C01, C03 o C02 | `lastSyncAt`, `ERROR` y el tipo de error | La versión, el último éxito y **el tipo** (D11) | En una escritura propia. Si la base tampoco la acepta, queda solo en el log |
+| Una verificación o un aviso (C02) encuentran el catálogo al día, y el último resultado era `ERROR` | `lastSyncAt`, `SUCCESS` y el error vacío | La versión, el último éxito y el tipo (D4 y D11) | En una transacción propia |
+| Una verificación o un aviso encuentran el catálogo al día, y el último resultado era `SUCCESS` | Nada; queda en el log | Todo (D4) | — |
 | Una verificación se descarta porque hay otra sincronización en curso | Nada; queda en el log | Todo | — |
+| Un aviso ya procesado (el mismo `eventId`) (C02) | Nada; queda en el log | Todo | — |
+| Un aviso inválido (C02) | Nada; queda en el log con su motivo (D8 de C02) | Todo | — |
+| Un aviso con una falla de la base fuera de la aplicación de una versión: al consultar el `eventId` o al leer la versión local (C02) | Nada; queda en el log (D9.3 de C02) | Todo | — |
+| Un aviso que terminó bien registra su `eventId` (C02) | Nada en esta fila: el aviso va a `processed_events`, en `synchronization` | Todo | En una escritura propia, después de las versiones. Si la base no la acepta, queda en el log y el resultado se conserva (D9.1 y D9.2 de C02) |
 
 Lo que sale de esta tabla:
 

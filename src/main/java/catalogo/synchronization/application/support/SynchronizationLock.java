@@ -15,6 +15,17 @@ public class SynchronizationLock {
         return lock.tryLock();
     }
 
+    // Espera a que termine la sincronización en curso.
+    public boolean acquire() {
+        try {
+            lock.lockInterruptibly();
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
     public void release() {
         lock.unlock();
     }

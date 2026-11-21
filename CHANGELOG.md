@@ -86,7 +86,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Disparador periodico de la verificacion en slice 'Syncronization'.
 - Tests de integracion para C03-VerificacionPerioca. 
 - Nuevas variables confgurables en .en.example y application.yaml para que las utilice.
+- Documentacion de SDD del caso de uso C02-SincronizacionIncremental.
+- Resultados para catchUp, en slice 'Synchronization'.
+- Funcion a synchrinizationLock para tomar el lock pero epserar a que se libere.
+- Entidad de ProcessedEvent con repsoitorio y demas en slice 'Synchronization', para alamcenar los avisos de la catedra que ya se procesaron.
 ### Removed 
-- Excepciones en slice 'Catalog' utilizadas para aplicar una versiond del catalogo, ahora devuelve un record con el error y resultado.
+- Excepciones en slice 'Catalog' utilizadas para aplicar una version del catalogo, ahora devuelve un record con el error y resultado.
 ### Changed
-- Ahora cuando falla la aplicar una version del catalogo (slice 'Catalog') devuelve un record de resultado. Esto para poder obtentener esoe resultado en la fachada 'Syncornization'.
+- Ahora cuando falla la aplicar una version del catalogo (slice 'Catalog') devuelve un record de resultado. Esto para poder obtentener esoe resultado en la fachada 'Syncornization'.}
+- Ahora la actualizacion de la version esta en un archivo catchUp para que la sincronizacion incremental tambien lo pueda utilizar. En slice 'Synchronization'.
+
+## 2026-11-20
+### Added 
+- Caso de uso de la sincronizacion incremental en slice 'Synchronization', con sus tests.
+- Lectura y validacion del aviso actualizacion del catalogo en slice 'Catedra'.
+- Caso de uso en slice 'Catedra' para enviar el aviso al slice 'Syncornization' para que lo utilice la sincronizacion incremental.
+- Listener para enterarse cuando el login tecnico ya termino. 
+- Consumer del topic de kafka.
+- Contenedro de kafka para los test.
+- Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
+- Test E2E de sincronizacion incremental.

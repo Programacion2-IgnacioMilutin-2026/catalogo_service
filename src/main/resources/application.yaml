@@ -45,6 +45,9 @@ catalogo:
       initial-delay: ${CATALOGO_CATEDRA_REDIS_INITIAL_DELAY:1s}
       multiplier: ${CATALOGO_CATEDRA_REDIS_MULTIPLIER:2}
       max-delay: ${CATALOGO_CATEDRA_REDIS_MAX_DELAY:30s}
+    kafka:
+      enabled: ${CATALOGO_CATEDRA_KAFKA_ENABLED:true}
+      max-poll-interval: ${CATALOGO_CATEDRA_KAFKA_MAX_POLL_INTERVAL:10m}
   synchronization:
     verification:
       enabled: ${CATALOGO_VERIFICATION_ENABLED:true}

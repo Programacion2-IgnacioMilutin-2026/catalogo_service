@@ -4,6 +4,7 @@ import catalogo.catedra.domain.model.TechnicalLoginPolicy;
 import catalogo.catedra.domain.model.TechnicalLoginResult;
 import catalogo.catedra.domain.model.TechnicalSession;
 import catalogo.catedra.domain.ports.in.RenewTechnicalSessionUseCase;
+import catalogo.catedra.domain.ports.out.TechnicalIntegrationListener;
 import catalogo.catedra.domain.ports.out.TechnicalLoginClient;
 import catalogo.catedra.domain.ports.out.TechnicalSessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class RenewTechnicalSessionUseCaseImpl implements RenewTechnicalSessionUs
     private final TechnicalSessionRepository technicalSessionRepository;
     private final TechnicalLoginPolicy technicalLoginPolicy;
     private final Clock clock;
+    private final TechnicalIntegrationListener technicalIntegrationListener;
 
     private final ReentrantLock loginLock = new ReentrantLock();
 
@@ -41,7 +43,11 @@ public class RenewTechnicalSessionUseCaseImpl implements RenewTechnicalSessionUs
             }
             TechnicalSession renewed = attemptLogin();
             technicalSessionRepository.save(renewed);
-            return renewed.isEnabled() ? Optional.of(renewed) : Optional.empty();
+            if (!renewed.isEnabled()) {
+                return Optional.empty();
+            }
+            notifyEnabled(renewed);
+            return Optional.of(renewed);
         } finally {
             loginLock.unlock();
         }
@@ -74,6 +80,14 @@ public class RenewTechnicalSessionUseCaseImpl implements RenewTechnicalSessionUs
                 yield TechnicalSession.degraded(attemptAt);
             }
         };
+    }
+
+    private void notifyEnabled(TechnicalSession session) {
+        try {
+            technicalIntegrationListener.integrationEnabled(session.integration());
+        } catch (RuntimeException e) {
+            log.error("The enabled integration could not be notified: {}", e.getClass().getSimpleName());
+        }
     }
 
     private TechnicalLoginResult loginSafely() {
