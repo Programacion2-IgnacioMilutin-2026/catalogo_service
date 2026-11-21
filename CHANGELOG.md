@@ -120,3 +120,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentacion de SDD del caso de uso C05-BuscarProfesionales.
 - Colacion, metodos en repositorios y modelos para buscar profesionales.
 - Filtro de profesionales por estado y categoria con paginacion, con su horario semanal. 
+- Caso de uso y service para fitlrar profesionales. 

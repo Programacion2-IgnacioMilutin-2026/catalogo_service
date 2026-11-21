@@ -76,7 +76,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 2 · El caso de uso
 
-- [ ] **TASK-04 · El caso de uso y el service**
+- [x] **TASK-04 · El caso de uso y el service**
   - Alcance:
     - `ProfessionalWithSchedules` y `ProfessionalPage` en `catalog/domain/model` (clases Lombok).
     - `SearchProfessionalsUseCase` y `SearchProfessionalsUseCaseImpl`: transacción de solo lectura con `REPEATABLE READ` (P3); sin inicializar, `CatalogNotInitializedException`; cuenta; si la página empieza en el total o más allá, devuelve la página vacía con el total sin leer más; si no, lee la página y los horarios, los junta y los ordena por D7.
@@ -86,7 +86,15 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-03
   - Resuelve: CA-01 (los horarios juntos y en orden), CA-08 (más allá del total no lee) y CA-12 (sin inicializar no busca), en el caso de uso
   - Validación: `./mvnw test -Dtest=SearchProfessionalsUseCaseImplTest`. Chequeos de la skill (§12, del 1 al 5) sin resultados nuevos. Pruebas en negativo: sin cortar en el total (se pide la página igual, y falla); y los horarios sin ordenar por día (falla). La foto única no se prueba aquí: la prueba TASK-09.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 3, autorizada ese día).
+    - Creados `ProfessionalWithSchedules`, `ProfessionalPage`, `SearchProfessionalsUseCase`, `SearchProfessionalsUseCaseImpl` (con `@Transactional(readOnly = true, isolation = REPEATABLE_READ)`), `ProfessionalService` y `SearchProfessionalsUseCaseImplTest`.
+    - Los puertos se simulan con Mockito (`@Mock`), porque son tres y el test solo mira qué se lee y cómo se arma la página. Los otros tests unitarios del servicio usan clientes falsos escritos a mano; para repositorios, que nadie había simulado, Mockito evita tres clases de prueba.
+    - `./mvnw test -Dtest=SearchProfessionalsUseCaseImplTest`: 6 tests, 0 fallos. Sin versión local, falla sin tocar los otros puertos (CA-12). Una página que empieza en el total o más allá viene vacía con el total, sin leer la página ni los horarios: cuatro casos, entre ellos el total 0 y la página 2000000000 (CA-08). Los profesionales vienen en el orden del puerto, cada uno con sus horarios por día, inicio e `id`, y uno sin horarios trae la lista vacía (CA-01).
+    - Prueba en negativo 1: sin el corte en el total, fallaron los cuatro casos de la página más allá.
+    - Prueba en negativo 2: los horarios sin ordenar, y falló el test del orden.
+    - Restaurado, `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 566 tests en 72 clases (560 + 6), 0 fallos ni errores, 141 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 ## Etapa 3 · El request, las respuestas y el mapper
 
