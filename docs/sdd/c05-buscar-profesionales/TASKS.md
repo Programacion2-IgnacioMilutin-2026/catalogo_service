@@ -155,7 +155,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw -q clean test`: 582 tests en 74 clases (573 + 9), 0 fallos ni errores, 139 s.
     - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
-- [ ] **TASK-07 · El `400` con `fieldErrors`**
+- [x] **TASK-07 · El `400` con `fieldErrors`**
   - Alcance:
     - `ApiExceptionHandler` sobrescribe el manejo de `MethodArgumentNotValidException`: `400` `VALIDATION_ERROR`, un `fieldErrors` por parámetro (los errores de varios días se juntan en `dayOfWeek`) y los mensajes de las reglas. No importa nada de C05.
     - `ProfessionalControllerTest` suma todas las reglas de validación y que los vacíos, las mayúsculas, las comas y los parámetros desconocidos le lleguen al service igual que si no vinieran.
@@ -163,11 +163,29 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-06
   - Resuelve: CA-09, CA-10, CA-18 y CA-19 en la web
   - Validación: `./mvnw test -Dtest=ProfessionalControllerTest`. Cada valor de CA-09 y CA-10 responde `400` con su parámetro; CA-19 trae exactamente las entradas del criterio; ningún cuerpo contiene tipos de Java. Los tests de C04 siguen en verde (`./mvnw test -Dtest='ProfessionalCategory*Test,ProfessionalCategories*Test'`). Pruebas en negativo: sin juntar los errores de los días (aparecen dos entradas, y falla); y la regla de las horas revisada aunque una no se pudo leer (aparece una entrada de más, y falla).
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 4, después del commit `f5ecba0` de TASK-06).
+    - `ApiExceptionHandler` sobrescribe `handleMethodArgumentNotValid`: `400` `VALIDATION_ERROR`, `detail` fijo, y `fieldErrors` con una entrada por parámetro. Quita el índice de los elementos de una lista (`dayOfWeek[1]` → `dayOfWeek`), y pone un texto neutro si Spring no pudo convertir un valor.
+    - La decisión 005 suma el punto 4 y el paso en el recorrido, y precisa "qué no hace": pone solo los códigos generales del contrato común.
+    - `ProfessionalControllerTest` suma 28 tests:
+      - 20 valores inválidos de CA-09 y CA-10, cada uno con `400`, una sola entrada con su parámetro, sin tipos de Java en el cuerpo y sin llamar al service;
+      - CA-19, con dos parámetros inválidos (dos entradas, cada una con su mensaje), "`from` antes que `to`" (una entrada en `from`) y una hora mal escrita (una entrada en `from`, por el formato);
+      - CA-18, con vacíos, `sort`, desconocidos y un `name` de espacios, que le llegan al service como "sin filtros", página 0 de 10;
+      - los días en cualquier mayúscula, repetidos, con comas o con un vacío, que dan lunes y viernes;
+      - y los valores válidos en los bordes: `page=2000000000`, `size=100`, `categoryId=-5`, `09:00:30` y `23:59`.
+    - `./mvnw test -Dtest=ProfessionalControllerTest`: 37 tests, 0 fallos. `WholeNumber` y `TimeRange` pasaron en la primera corrida.
+    - Las pruebas en negativo de la tarea cambiaron en la implementación, para que cada una rompa algo que un test detecte:
+      - "la regla de las horas revisada aunque una no se pudo leer" no se puede detectar, porque el manejador junta los errores de un mismo parámetro; se reemplazó por `TimeRange` informando en `to`;
+      - se sumó una tercera, sobre `WholeNumber`.
+    - Prueba en negativo 1: el manejador sin quitar el índice, y fallaron los dos casos de días inválidos (llegaban como `dayOfWeek[0]`) y el combinado (tres entradas).
+    - Prueba en negativo 2: `TimeRange` con el error en `to`, y fallaron los dos casos de franja invertida o igual y el de "`from` antes que `to`".
+    - Prueba en negativo 3: `WholeNumber` sin el rango, y fallaron seis casos (20 dígitos en `categoryId` y en `page`, `page=-1`, `size=0`, `size=101` y el combinado). En el log aparecieron 3 "Unexpected error": sin el rango, esos valores rompían la conversión o la paginación con un `500`.
+    - Restaurados, `sha256sum -c` coincide en los tres.
+    - `./mvnw -q clean test`: 610 tests en 74 clases (582 + 28), 0 fallos ni errores, 140 s. Las cinco clases de C04 siguen en verde.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 ## Etapa 5 · La integración completa
 
-- [ ] **TASK-08 · La búsqueda de punta a punta**
+- [x] **TASK-08 · La búsqueda de punta a punta**
   - Alcance:
     - `ProfessionalsIntegrationTest` (nuevo; aplicación en un puerto real, `RestTestClient`, cátedra simulada como testigo):
       - los valores desde la base y los horarios en orden, sin pedidos a la cátedra;
@@ -180,14 +198,37 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-07
   - Resuelve: CA-01 a CA-03, CA-05, CA-07, CA-08, CA-11 a CA-14, la primera mitad de CA-15, CA-16, CA-18 y CA-19 de punta a punta
   - Validación: `./mvnw test -Dtest='ProfessionalsIntegrationTest,ProfessionalCategoriesWithoutCatedraIntegrationTest'`. Después de cada caso con tablas renombradas, las tablas siguen con su nombre. Pruebas en negativo: sin la captura de lo no previsto en el manejador (el `500` llega como otro estado, y falla); y el controller sin traducir "sin inicializar" (falla).
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 5, autorizada ese día; el usuario commitea juntas TASK-08 y TASK-09).
+    - Creado `ProfessionalsIntegrationTest`, con 19 tests:
+      - **CA-01:** la copia completa en modo estricto, con el orden de D6, los horarios cargados desordenados y devueltos por D7, las horas `HH:mm:ss`, la categoría sin descripción y sin pedidos a la cátedra simulada;
+      - **un caso por filtro**, 9 en total: categoría, estado, nombre sin tildes y en mayúsculas, día con franja, horario deshabilitado, solo `to`, días con coma y filtros combinados;
+      - **la paginación:** páginas de 2 y la 2000000000, que da vacía con el total real y no `500`;
+      - **lo que no cambia la respuesta:** el JWT alterado, y los vacíos y desconocidos;
+      - **el `503`** con y sin profesionales, sin pedidos a la cátedra y con la base igual;
+      - **el `400` antes de mirar la copia**, con la copia sin inicializar;
+      - **la página vacía**, sin profesionales y con filtros que nadie cumple;
+      - **el `500`** con `catalog_sync_state` y con `professionals` renombradas, sin detalles internos y con el error en el log;
+      - **un cambio sin confirmar** desde otra conexión, que no se ve y no hace esperar (tope de 5 s, el mismo de C04), y después confirmado, que sí se ve.
+    - `ProfessionalCategoriesWithoutCatedraIntegrationTest`: su método suma un profesional y un pedido a C05, que responde `200` sin la integración (CA-16).
+    - `./mvnw test -Dtest=ProfessionalsIntegrationTest`: 19 tests, 0 fallos. `./mvnw test -Dtest=ProfessionalCategoriesWithoutCatedraIntegrationTest`: 1 test, 0 fallos.
+    - En el `500` no se revisa "professionals", porque el cuerpo trae la ruta en `instance`, igual que en TASK-06; se revisan `catalog_sync_state`, `_hidden` y los textos del error de PostgreSQL.
+    - Prueba en negativo 1: sin `@ExceptionHandler(Exception.class)`, los dos casos del `500` llegaron como `403`. Es el reenvío a `/error` que documentó C04, y ahora se ve también con C05.
+    - Prueba en negativo 2: el `catch` del controller sin atrapar "sin inicializar", y el `503` llegó como `500`.
+    - Restaurados, `sha256sum -c` coincide en los dos.
+    - Suite completa: la de TASK-09.
 
-- [ ] **TASK-09 · La foto única**
+- [x] **TASK-09 · La foto única**
   - Alcance: `ProfessionalsConsistencyIntegrationTest` (nuevo). `@MockitoSpyBean` sobre el adaptador de profesionales: antes de traer la página, y después de contar, el test confirma desde una conexión propia del `DataSource` un profesional nuevo y un horario cambiado; después corre la lectura real (P7.2).
   - Depende de: TASK-08
   - Resuelve: CA-15 (la segunda mitad); RF-11
   - Validación: `./mvnw test -Dtest=ProfessionalsConsistencyIntegrationTest`. La respuesta trae el total, la página y los horarios de antes; un pedido siguiente trae los nuevos. **Prueba en negativo obligatoria:** sin `REPEATABLE READ` en el caso de uso, el test falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 5).
+    - Creado `ProfessionalsConsistencyIntegrationTest`, sin la cátedra (`catalogo.catedra.base-url=`) y con `@MockitoSpyBean` sobre `ProfessionalRepository`.
+    - El primer `findMatching`, que llega después de contar, confirma antes desde otra conexión del `DataSource` un profesional nuevo (605, Acosta) y un horario cambiado (701, de 08:00 a 07:00), y recién después hace la lectura real; los siguientes son normales.
+    - `./mvnw test -Dtest=ProfessionalsConsistencyIntegrationTest`: 1 test, 0 fallos. El primer pedido trae el total, la página y el horario de antes (2, `[602, 601]` y 08:00); el test comprueba que el cambio se hizo; y el segundo pedido trae los nuevos (3, `[605, 602, 601]` y 07:00).
+    - **Prueba en negativo obligatoria:** con `@Transactional(readOnly = true)`, sin `REPEATABLE READ`, el test falló con `"$.items[*].id" expected:<[602, 601]> but was:<[605, 602, 601]>`. El total decía 2 y la página traía 3: la mezcla que prohíbe RF-11. Restaurado, `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 630 tests en 76 clases (610 + 20), 0 fallos ni errores, 161 s. Unos 20 s más que antes, por los arranques de las dos clases nuevas, que necesitan cada una su propia configuración (P7.1).
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 ## Etapa 6 · Regresión y prueba manual
 

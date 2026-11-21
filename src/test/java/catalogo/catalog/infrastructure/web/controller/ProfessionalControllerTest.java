@@ -15,7 +15,10 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -30,15 +33,20 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -154,6 +162,124 @@ class ProfessionalControllerTest {
 
         assertThat(body).doesNotContain("catalog-db", "weekly_schedules", "DataAccess", "Exception", "at ");
         assertThat(output).contains("Unexpected error").contains("DataAccessResourceFailureException");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "dayOfWeek=FUNDAY | dayOfWeek",
+            "dayOfWeek=lunes | dayOfWeek",
+            "from=25:00 | from",
+            "to=9:00 | to",
+            "from=9:00 | from",
+            "from=09:00:00.5 | from",
+            "from=12:00&to=09:00 | from",
+            "from=10:00&to=10:00 | from",
+            "categoryId=abc | categoryId",
+            "categoryId=12345678901234567890 | categoryId",
+            "enabled=TRUE | enabled",
+            "enabled=yes | enabled",
+            "enabled=1 | enabled",
+            "enabled=quizas | enabled",
+            "page=-1 | page",
+            "page=abc | page",
+            "page=12345678901234567890 | page",
+            "size=0 | size",
+            "size=101 | size",
+            "size=diez | size"})
+    void anInvalidParameterAnswers400WithItsFieldAndNothingIsSearched(String query, String field) throws Exception {
+        String body = mockMvc.perform(get(PROFESSIONALS + "?" + query))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors.length()").value(1))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value(field))
+                .andExpect(jsonPath("$.fieldErrors[0].message").isString())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("java.", "Failed to convert", "Exception");
+        verifyNoInteractions(professionalService);
+    }
+
+    @Test
+    void everyInvalidParameterIsReportedOnceInTheSameResponse() throws Exception {
+        mockMvc.perform(get(PROFESSIONALS + "?size=0&dayOfWeek=FUNDAY&dayOfWeek=SUNNYDAY"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.length()").value(2))
+                .andExpect(jsonPath("$.fieldErrors[*].field", containsInAnyOrder("size", "dayOfWeek")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'size')].message",
+                        contains("must be a whole number from 1 to 100")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'dayOfWeek')].message",
+                        contains("must be a day from MONDAY to SUNDAY")));
+    }
+
+    @Test
+    void fromNotBeforeToIsASingleErrorOnFrom() throws Exception {
+        mockMvc.perform(get(PROFESSIONALS + "?from=14:00&to=10:00"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.length()").value(1))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("from"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("must be before to"));
+    }
+
+    @Test
+    void aMalformedTimeIsReportedByItsFormatAndNotAsARange() throws Exception {
+        mockMvc.perform(get(PROFESSIONALS + "?from=99:00&to=10:00"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.length()").value(1))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("from"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("must be a time as HH:mm or HH:mm:ss"));
+    }
+
+    @Test
+    void emptyAndUnknownParametersGetTheSameSearchAsNoParameters() throws Exception {
+        givenTwoProfessionals();
+
+        mockMvc.perform(get(PROFESSIONALS + "?name=&categoryId=&enabled=&dayOfWeek=&from=&to=&page=&size="
+                        + "&sort=lastName&foo=bar"))
+                .andExpect(status().isOk())
+                .andExpect(content().json(ONE_PROFESSIONAL_JSON, JsonCompareMode.STRICT));
+        mockMvc.perform(get(PROFESSIONALS).queryParam("name", "   "))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<ProfessionalSearchCriteria> criteria = ArgumentCaptor.forClass(ProfessionalSearchCriteria.class);
+        verify(professionalService, times(2)).searchProfessionals(criteria.capture(), eq(0), eq(10));
+        ProfessionalSearchCriteria noFilters = ProfessionalSearchCriteria.builder()
+                .daysOfWeek(EnumSet.noneOf(DayOfWeek.class))
+                .build();
+        assertThat(criteria.getAllValues())
+                .allSatisfy(received -> assertThat(received).usingRecursiveComparison().isEqualTo(noFilters));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "dayOfWeek=monday&dayOfWeek=FRIDAY",
+            "dayOfWeek=Monday,friday",
+            "dayOfWeek=MONDAY&dayOfWeek=&dayOfWeek=FRIDAY"})
+    void daysInAnyCaseRepeatedOrWithCommasGetTheSameDays(String query) throws Exception {
+        givenTwoProfessionals();
+
+        mockMvc.perform(get(PROFESSIONALS + "?" + query)).andExpect(status().isOk());
+
+        ArgumentCaptor<ProfessionalSearchCriteria> criteria = ArgumentCaptor.forClass(ProfessionalSearchCriteria.class);
+        verify(professionalService).searchProfessionals(criteria.capture(), eq(0), eq(10));
+        assertThat(criteria.getValue().getDaysOfWeek()).containsExactlyInAnyOrder(DayOfWeek.MONDAY, DayOfWeek.FRIDAY);
+    }
+
+    @Test
+    void validValuesAtTheEdgesAreAccepted() throws Exception {
+        givenTwoProfessionals();
+
+        mockMvc.perform(get(PROFESSIONALS + "?page=2000000000&size=100&categoryId=-5&enabled=true"
+                        + "&from=09:00:30&to=23:59"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<ProfessionalSearchCriteria> criteria = ArgumentCaptor.forClass(ProfessionalSearchCriteria.class);
+        verify(professionalService).searchProfessionals(criteria.capture(), eq(2000000000), eq(100));
+        assertThat(criteria.getValue().getCategoryId()).isEqualTo(-5L);
+        assertThat(criteria.getValue().getEnabled()).isTrue();
+        assertThat(criteria.getValue().getFrom()).isEqualTo(LocalTime.of(9, 0, 30));
+        assertThat(criteria.getValue().getTo()).isEqualTo(LocalTime.of(23, 59));
     }
 
     private void givenTwoProfessionals() {

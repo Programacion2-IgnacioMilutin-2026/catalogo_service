@@ -1,7 +1,7 @@
 # 005 — Manejador global de errores: un solo formato para las respuestas de error
 
 - **Fecha:** 2026-11-20
-- **Funcionalidad:** C04 — Listar categorías (`docs/sdd/c04-listar-categorias/`, P2 del PLAN)
+- **Funcionalidad:** C04 — Listar categorías (`docs/sdd/c04-listar-categorias/`, P2 del PLAN). Ampliada en C05 — Buscar profesionales (`docs/sdd/c05-buscar-profesionales/`, P5 del PLAN), el 2026-11-21
 - **Estado:** aceptada
 
 ## Situación
@@ -27,27 +27,30 @@ Qué hace:
 1. **Da formato `problem+json` a los errores que lanza un controller** con su estado y su `code`, como el `503` de C04, y a los que Spring ya reconoce, como una ruta inexistente (`404`) o un método no permitido (`405`). Hereda de `ResponseEntityExceptionHandler`, la clase de Spring MVC que ya resuelve esos casos (comprobado en Spring MVC 7.0.10, la versión del proyecto).
 2. **Atrapa cualquier otro error**, como una falla de la base: deja en el log un error con su detalle completo, incluida la traza, y responde `500` `INTERNAL_ERROR` con un texto fijo. Es el único lugar del servicio donde se escribe ese error, y así se cumple el "se registra el error" de C04 2.3 (RF-05 de su SPEC): el detalle va al log y nunca a la respuesta.
 3. **Responde antes del reenvío a `/error`**, así que la seguridad no vuelve a intervenir.
+4. **Responde los errores de validación de los parámetros** (desde C05): `400` `VALIDATION_ERROR` con `fieldErrors`, uno por parámetro, con el mensaje fijo de la regla que no se cumplió. Los errores de los elementos de una lista (por ejemplo, dos días inválidos) se juntan en uno, con el nombre del parámetro. Si Spring no pudo convertir un valor, el mensaje es neutro ("invalid value"), porque el suyo muestra tipos de Java.
 
 Cómo fluye un error:
 
 ```
 pedido
 └─ seguridad (config)
+   └─ parámetros inválidos (@Valid) → MethodArgumentNotValidException, antes de entrar al controller
    └─ controller del slice
       ├─ excepción del slice → ResponseStatusException con su estado y su code   lo decide el controller
       └─ error no previsto (la base) → sale del controller sin atrapar
 └─ manejador global (config)
+   ├─ MethodArgumentNotValidException → 400 VALIDATION_ERROR con fieldErrors
    ├─ ResponseStatusException → problem+json con su code
    └─ cualquier otro → error en el log, con la traza, y 500 INTERNAL_ERROR con un texto fijo
 ```
 
 Qué no hace:
 
-- **No decide estados ni códigos.** Eso sigue en el controller de cada slice, como pide la skill. El manejador no importa nada de ningún slice: solo da formato.
+- **No decide los estados ni los códigos de los slices.** Eso sigue en el controller de cada slice, como pide la skill. Los únicos códigos que pone son los generales del contrato común (§2), que no son de ningún slice: `INTERNAL_ERROR` y, desde C05, `VALIDATION_ERROR`. El manejador no importa nada de ningún slice.
 - **No responde los rechazos de la seguridad** (`401` y `403`): ocurren antes de llegar a un controller. Se resuelven en la funcionalidad de la validación del JWT, como quedó anotado en la SPEC de C04.
 - **No cambia el formato de las líneas del log**, que sigue siendo el de Spring Boot.
 
-Empieza con lo que C04 necesita. Cuando C05 necesite `VALIDATION_ERROR` con `fieldErrors`, se agrega a este mismo manejador.
+Empezó con lo que C04 necesitaba. C05 le sumó el `400` `VALIDATION_ERROR` con `fieldErrors` (punto 4). En C04 este texto decía que el manejador "no decide estados ni códigos", aunque ya ponía `INTERNAL_ERROR`; se precisó al sumar `VALIDATION_ERROR` (P5 del PLAN de C05).
 
 ### Excepción a la skill
 

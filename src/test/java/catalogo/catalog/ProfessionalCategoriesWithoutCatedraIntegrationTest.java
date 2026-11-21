@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// El listado responde igual sin integración con la cátedra.
+// El listado de categorías y la búsqueda de profesionales responden igual sin integración con la cátedra.
 @ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "catalogo.catedra.base-url=")
 @AutoConfigureRestTestClient
@@ -37,11 +37,17 @@ class ProfessionalCategoriesWithoutCatedraIntegrationTest {
         tables.reset();
         tables.insertCategory(1, "Pediatría", "Atención de niños", true);
         tables.insertCategory(2, "Kinesiología", null, false);
+        tables.insertProfessional(601, 2, "Valentina", "Ibáñez", true);
         tables.initializeAt(57);
 
         restTestClient.get().uri("/api/professional-categories").exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$[*].name").isEqualTo(List.of("Kinesiología", "Pediatría"));
+        restTestClient.get().uri("/api/professionals").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.items[*].lastName").isEqualTo(List.of("Ibáñez"))
+                .jsonPath("$.totalItems").isEqualTo(1);
 
         assertThat(output).contains("Technical login disabled: missing configuration properties")
                 .contains("catalogo.catedra.base-url");

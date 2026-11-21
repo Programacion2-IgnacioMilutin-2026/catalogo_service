@@ -1,16 +1,35 @@
 package catalogo.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-// Da formato problem+json a los errores del servicio. Los estados y códigos de cada slice los decide su controller.
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+// Da formato problem+json a los errores del servicio y pone los códigos generales.
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "One or more parameters are invalid");
+        body.setProperty("code", "VALIDATION_ERROR");
+        body.setProperty("fieldErrors", fieldErrors(ex.getBindingResult().getFieldErrors()));
+        return handleExceptionInternal(ex, body, headers, status, request);
+    }
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
@@ -18,5 +37,22 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
         body.setProperty("code", "INTERNAL_ERROR");
         return body;
+    }
+
+    private static List<FieldErrorItem> fieldErrors(List<FieldError> errors) {
+        Map<String, String> byField = new LinkedHashMap<>();
+        for (FieldError error : errors) {
+            byField.putIfAbsent(error.getField().replaceAll("\\[\\d+]$", ""), messageOf(error));
+        }
+        return byField.entrySet().stream()
+                .map(entry -> new FieldErrorItem(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private static String messageOf(FieldError error) {
+        return error.isBindingFailure() ? "invalid value" : error.getDefaultMessage();
+    }
+
+    record FieldErrorItem(String field, String message) {
     }
 }
