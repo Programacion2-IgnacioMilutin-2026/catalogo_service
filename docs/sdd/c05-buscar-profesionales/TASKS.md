@@ -232,14 +232,26 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 6 · Regresión y prueba manual
 
-- [ ] **TASK-10 · La suite completa**
+- [x] **TASK-10 · La suite completa**
   - Alcance: sin código nuevo. Solo se corre y se registra.
   - Depende de: TASK-09
   - Resuelve: comprobaciones de regresión del PLAN
   - Validación: `./mvnw clean verify`; conteo en los XML comparado con la línea base de TASK-01; cobertura de JaCoCo; y los chequeos de la skill (§12, del 1 al 5). El resultado se registra después de leer la salida, nunca en el mismo comando.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 6, autorizada ese día; sobre `dfdf56a`, con todo commiteado).
+    - `./mvnw clean verify`: `BUILD SUCCESS`, 630 tests en 76 clases, 0 fallos, errores ni salteados, 149 s. Contra la línea base de TASK-01 (522 tests en 70 clases), son 108 tests y 6 clases más.
+    - Cobertura de JaCoCo (`target/site/jacoco/jacoco.xml`): 97,3 % de líneas (1617/1662) y 94,0 % de ramas (565/601), contra 97,0 % y 93,4 % al cerrar C04.
+    - Las clases de C05 tienen 100 % de líneas. Las ramas están al 100 % salvo dos, que quedan sin cubrir:
+      - `ProfessionalSearchCriteria.nameWords()` con un nombre de solo espacios: el mapper ya lo convierte en `null`, así que no llega;
+      - en `ApiExceptionHandler`, el texto neutro para un valor que Spring no pudo convertir: con el request todo en texto no ocurre, y queda como defensa para otros controllers.
+    - Los modelos, el request y las respuestas no suman líneas, porque su código lo genera Lombok.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices (fachada y gateway de `synchronization`), ninguno de C05.
+    - La lista de la skill, revisada en las piezas de C05:
+      - el controller inyecta solo el service y el mapper web, y no importa puertos de entrada ni persistencia;
+      - el service depende solo de `SearchProfessionalsUseCase`, y el caso de uso solo de puertos de salida;
+      - los adaptadores devuelven modelos del dominio;
+      - los mappers usan el Builder.
 
-- [ ] **TASK-11 · La prueba manual con la cátedra real (la corre el usuario)**
+- [x] **TASK-11 · La prueba manual con la cátedra real (la corre el usuario)**
   - Alcance:
     - Se le da al usuario la lista exacta de pedidos a la cátedra que hace el arranque (login técnico, snapshot y lecturas de Redis de la verificación) y el comando para levantar la aplicación con `CATALOGO_CATEDRA_KAFKA_ENABLED=false`.
     - También, los `curl` a C05: sin filtros, por categoría, por nombre con y sin tildes, por disponibilidad, una página más allá y un `400`.
@@ -247,15 +259,49 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-10 y el OK del usuario
   - Resuelve: la prueba manual de P7.4 (enunciado §11); `V4` sobre la base de desarrollo
   - Validación: el log del arranque (Flyway en `v4`, el login y la carga del snapshot) y las respuestas de los `curl`, con los datos reales. Después, la aplicación detenida y el compose como estaba. Si la cátedra no responde, se registra como limitación del entorno.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 6). El usuario corrió en su terminal `docker compose up -d --wait catalog-db`, la aplicación con `CATALOGO_CATEDRA_KAFKA_ENABLED=false` (el log a un archivo del scratchpad) y un script con 14 `curl` a `localhost:8081`. Antes se le dio la lista de pedidos a la cátedra: el login técnico, el snapshot y las lecturas de Redis, sin Kafka. El log se leyó filtrado, sin hosts ni credenciales.
+    - **Arranque:**
+      - Flyway aplicó `V4` sobre la base de desarrollo ("now at version v4").
+      - El login técnico respondió `PROVISIONED`.
+      - La verificación no encontró versión local y pidió el snapshot 422: 8 categorías, 24 profesionales y 44 horarios. Después leyó Redis y quedó al día en la 422.
+      - En el log no hay errores ni avisos de la aplicación (0 "Unexpected error"). Los únicos `[WARNING]` eran de Maven, que no pudo bajar metadatos de un repositorio, y no tienen relación con la prueba.
+    - **Respuestas, con los datos reales:**
+      - Las categorías (C04): `200`, 8, en orden alfabético.
+      - Sin filtros: `200`, página 0 de 10, `totalItems` 24. Con `size=100` vienen los 24 por apellido (Acosta, Alvarez, Benitez … Torres, Vega), con habilitados y deshabilitados mezclados. Cada uno trae todos sus horarios en orden de la semana, con las horas en `HH:mm:ss`.
+      - `categoryId=101` (Cardiologia): 3, entre ellos una profesional deshabilitada. `enabled=false`: 4.
+      - `name=Acosta` y `name=acosta`: 1 cada uno.
+      - `dayOfWeek=MONDAY`: 9. Incluye a una profesional deshabilitada con un horario habilitado los lunes, porque el estado es el del profesional (dominio, regla 4).
+      - `dayOfWeek=monday,friday&from=14:00`: 12, con la primera página de 10. **El borde de D3.1 se vio con datos reales:** Castro (lunes de 11 a 14) y Costa (viernes de 11 a 14) quedaron afuera, y Quiroga entró por su viernes de 16 a 19.
+      - `to=09:00`: 0, porque ningún horario empieza antes de las 11:00.
+      - `page=1000`: `200`, vacía, con `totalItems` 24.
+      - `size=0&dayOfWeek=FUNDAY`: `400` `VALIDATION_ERROR`, con dos `fieldErrors` (`dayOfWeek` y `size`).
+      - Con `Authorization: Bearer not-a-token`: el mismo cuerpo que sin el encabezado (comparado como JSON).
+      - `GET /api/professionals/1`: `403` sin cuerpo.
+    - **Lo que la cátedra real no permite comprobar:** ninguno de los 24 profesionales ni de las 8 categorías tiene tildes ni ñ. La búsqueda sin tildes, la ñ igual a la n y el lugar de la ñ en el orden quedan probados solo por los tests (TASK-01 y TASK-08), con datos ficticios.
+    - **Después:** la aplicación detenida, el compose apagado como estaba (sin contenedores, con el volumen de la base intacto) y el puerto 8081 libre. La base de desarrollo quedó con la copia 422 y el esquema en `v4`, como en cualquier arranque.
+    - El script, las respuestas y el log se borraron del scratchpad.
 
 ## Etapa 7 · Cierre
 
-- [ ] **TASK-12 · Documentación de cierre**
+- [x] **TASK-12 · Documentación de cierre**
   - Alcance:
     - El `CLAUDE.md`: el slice `catalog` con C05, las excepciones de C05 (P8), cómo se busca (las colaciones de `V4` y su efecto al comparar), la ruta pública nueva en "Seguridad", el `400` en "Cómo responde un error", los tests y helpers nuevos y la carpeta de la SDD.
     - `TASKS.md` con lo observado, la memoria del proyecto, y el recordatorio del commit de `documentacion` (los cambios de C05 en el caso de uso y el contrato, separados de los de turnos).
   - Depende de: TASK-11
   - Resuelve: el cierre del PLAN (etapa 7)
   - Validación: el `CLAUDE.md` revisado contra el código (rutas, clases y comandos que existen) y las copias de `documentacion` y del servicio comparadas.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 7, autorizada ese día; el usuario commitea juntas las tandas 6 y 7).
+    - **El `CLAUDE.md`:**
+      - el comando de la aplicación con la cátedra real y sin Kafka;
+      - validation entre las dependencias en uso;
+      - el slice `catalog` con las piezas de C05 y el `config` con el `400`;
+      - las excepciones de C05 (P8) y lo que no es excepción;
+      - en "Seguridad", la ruta pública nueva, la regla de la ruta exacta y los casos del test de las otras rutas;
+      - en "Cómo responde un error", el `400` `VALIDATION_ERROR`, las validaciones propias y cómo lee Spring los parámetros;
+      - una sección nueva, "La búsqueda de profesionales": `V4`, la consulta, el caso de uso y el doble conteo sin medir;
+      - lo comprobado con la cátedra real en C05, incluido que no hay tildes ni ñ;
+      - los tests de C05 y tres lecciones: la palabra prohibida que aparece en `instance`, el controller anidado en un `@WebMvcTest` y el `%` en `MockMvc`;
+      - la carpeta de la SDD, y la decisión 005 ampliada.
+    - **Revisión contra el código:** las 19 clases que nombra existen en `src`. La tabla de slices sigue con sus 6 líneas de 4 columnas, después de corregir una fila que había quedado partida al editarla. `V1` a `V4` están en `db/migration`.
+    - **Las copias:** `contratos_comunes.md`, el caso de uso de X01 y su secuencia son idénticos en `documentacion`, `turnos_service` y `catalog_service`; el contrato, los casos de uso, la secuencia y el dominio de catálogo son idénticos en `documentacion` y en la copia del servicio.
+    - **Para el usuario:** en `documentacion` siguen sin commitear el caso de uso de C05, paso 5 (D1), y el contrato §2.2 (D2, D3 y las dos versiones de la fila de `dayOfWeek`), junto con los cambios de catálogo de C01 a C04 y los de turnos y la app.
