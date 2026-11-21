@@ -5,10 +5,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 
 // Repositorio JPA de los horarios semanales.
 @Repository
 public interface JpaWeeklyScheduleRepository extends JpaRepository<WeeklyScheduleEntity, Long> {
 
     void deleteByIdNotIn(Collection<Long> ids);
+
+    List<WeeklyScheduleEntity> findAllByProfessionalIdIn(Collection<Long> professionalIds);
 }

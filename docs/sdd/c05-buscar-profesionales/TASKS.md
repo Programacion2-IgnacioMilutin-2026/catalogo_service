@@ -42,14 +42,19 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw -q clean test`: 537 tests en 71 clases (522 + 15), 0 fallos ni errores, 140 s.
     - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices de antes (fachada y gateway de `synchronization`). TASK-01 no suma ninguno.
 
-- [ ] **TASK-02 · Categoría, estado, contar y la página**
+- [x] **TASK-02 · Categoría, estado, contar y la página**
   - Alcance: `JpaProfessionalRepositoryAdapter` suma los filtros por `categoryId` y `enabled`, y su combinación con el nombre. `ProfessionalSearchRepositoryAdaptersTest` suma esos casos, el conteo y la página (`findMatching` con `page` y `size`), y los resultados vacíos.
   - Depende de: TASK-01
   - Resuelve: CA-02, CA-08 y CA-13 en la base; parte de CA-06
   - Validación: `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`. Una categoría habilitada y una deshabilitada, profesionales en los dos estados; páginas de 2 sin repetidos ni faltantes; el total igual a la cantidad que cumple los filtros; un `categoryId` inexistente da 0. Prueba en negativo: el filtro por estado ignorado, y falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 2, autorizada ese día).
+    - `JpaProfessionalRepositoryAdapter` suma `inCategory` y `withEnabled`, y `matching` arma la lista de condiciones con los filtros recibidos.
+    - `ProfessionalSearchRepositoryAdaptersTest` suma 9 tests: 6 casos de categoría y estado (CA-02; con una categoría deshabilitada y un horario deshabilitado que no cambian nada), el nombre combinado con categoría y estado (CA-06), las páginas de 2 (CA-08) y sin profesionales (CA-13).
+    - `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`: 24 tests, 0 fallos.
+    - Prueba en negativo: sin la condición de `enabled`, fallaron exactamente los tres casos con estado y el combinado. Restaurado, `sha256sum -c` coincide.
+    - Suite completa: la de TASK-03.
 
-- [ ] **TASK-03 · La disponibilidad y los horarios de varios profesionales**
+- [x] **TASK-03 · La disponibilidad y los horarios de varios profesionales**
   - Alcance:
     - `JpaProfessionalRepositoryAdapter` suma la disponibilidad: "existe un horario habilitado de este profesional que…", con días opcionales, franja opcional (solo `from`, solo `to` o las dos), solapamiento estricto, y sin contar los horarios que no terminan después de empezar (RF-04).
     - `WeeklyScheduleRepository` suma `findAllByProfessionalIds(ids)`; `JpaWeeklyScheduleRepository`, `findAllByProfessionalIdIn(ids)`; y `JpaWeeklyScheduleRepositoryAdapter` lo implementa con el mapper existente.
@@ -57,7 +62,17 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-02
   - Resuelve: CA-04, CA-05 y CA-06 en la base; la lectura de los horarios de RF-01
   - Validación: `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`. Los profesionales y pedidos de CA-04 y CA-05, uno por caso; los filtros combinados de CA-06; y los horarios de los ids pedidos, y solo esos. Pruebas en negativo: el solapamiento con `<=` en lugar de `<` (falla el borde de 08:00 a 12:00 con `from` 12:00); sin la condición de fin posterior al inicio (falla el horario de 22:00 a 02:00); y la disponibilidad sin exigir que el horario esté habilitado (falla CA-04).
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 2).
+    - `JpaProfessionalRepositoryAdapter` suma `availableIn`, una subconsulta "existe un horario de este profesional que…": habilitado, que termina después de empezar, en alguno de los días si llegaron, que termina después de `from` si llegó y que empieza antes de `to` si llegó. Solo se agrega si llegó alguna parte.
+    - `WeeklyScheduleRepository` suma `findAllByProfessionalIds`; `JpaWeeklyScheduleRepository`, `findAllByProfessionalIdIn`; y `JpaWeeklyScheduleRepositoryAdapter` lo implementa con el mapper existente. Con una lista vacía devuelve vacío sin consultar.
+    - `ProfessionalSearchRepositoryAdaptersTest` suma 14 tests: CA-04; los 11 casos de CA-05, con días, franja completa, solo `from`, solo `to`, los dos bordes, el horario de 22:00 a 02:00 y sin disponibilidad; la disponibilidad combinada con el nombre (CA-06); y los horarios de los ids pedidos con todos sus campos.
+    - `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`: 38 tests, 0 fallos.
+    - Prueba en negativo 1: `greaterThanOrEqualTo` en lugar de `greaterThan`, y falló solo el caso de `from` 12:00.
+    - Prueba en negativo 2: sin la condición de fin posterior al inicio, y fallaron los casos del lunes, del lunes y el viernes, y de `to` 23:00, donde entraba el horario de 22:00 a 02:00.
+    - Prueba en negativo 3: sin exigir el horario habilitado, y falló el test de CA-04.
+    - Restaurado el adaptador, `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 560 tests en 71 clases (537 + 23), 0 fallos ni errores, 139 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 ## Etapa 2 · El caso de uso
 
