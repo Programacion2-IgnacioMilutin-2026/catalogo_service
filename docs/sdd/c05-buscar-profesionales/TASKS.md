@@ -128,7 +128,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 4 · La entrada web
 
-- [ ] **TASK-06 · El controller y la ruta pública**
+- [x] **TASK-06 · El controller y la ruta pública**
   - Alcance:
     - `ProfessionalController` (`@RequestMapping("/api/professionals")`, un `@GetMapping` con `@Valid @ModelAttribute`), que traduce `CatalogNotInitializedException` a `503` `CATALOG_NOT_INITIALIZED`.
     - `SecurityConfig` suma `GET /api/professionals`, exacta.
@@ -137,7 +137,23 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-05
   - Resuelve: CA-01 (la forma del JSON y las horas en `HH:mm:ss`), CA-11, CA-12 y CA-14 en la forma, y CA-17
   - Validación: `./mvnw test -Dtest='ProfessionalControllerTest,ProfessionalCategoriesIntegrationTest'`. Si las horas no salen en `HH:mm:ss`, se ajusta el mapper (riesgo del PLAN). Pruebas en negativo: la ruta con `/**` en `SecurityConfig` (`/api/professionals/15` deja de ser `403`, y falla); y el `503` traducido como `500` (falla).
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 4, autorizada ese día; el usuario commitea TASK-06 antes de TASK-07, porque las dos tocan `ProfessionalControllerTest`).
+    - Creados `ProfessionalController` y `ProfessionalControllerTest`.
+    - Modificados `SecurityConfig` (`GET /api/professionals`, exacta) y `ProfessionalCategoriesIntegrationTest` (el test de las otras rutas pierde `GET /api/professionals` y suma `POST /api/professionals`).
+    - `./mvnw test -Dtest='ProfessionalControllerTest,ProfessionalCategoriesIntegrationTest'`: 19 tests, 0 fallos.
+      - El JSON coincide en modo estricto con el del contrato, sin campos de más.
+      - **Las horas salen como `"08:00:00"` y `"12:30:00"`: el riesgo de Jackson con las horas quedó descartado**, y el mapper no tuvo que cambiar.
+      - Un profesional sin horarios trae `[]`.
+      - Sin parámetros, el service recibe la página 0 de 10.
+      - Las cinco variantes de `Authorization` dan la misma respuesta.
+      - El `503` y el `500` salen en `problem+json` con su `code`; el `500` sin detalles internos y con el error en el log.
+      - `GET /api/professionals/15` y `POST /api/professionals` siguen en `403`.
+    - Un error del test, corregido antes de la prueba en negativo: el `500` se comprobaba con "professionals" entre las palabras prohibidas, y el cuerpo la trae en `instance` (`/api/professionals`, la ruta pública, no un dato interno). La falla simulada nombra ahora `weekly_schedules`, que no aparece en la ruta.
+    - Prueba en negativo 1: la ruta con `/**`, y falló el caso `GET /api/professionals/15` (esperaba `403`, llegó `404`).
+    - Prueba en negativo 2: "sin inicializar" traducido como `500`, y falló el test del `503`.
+    - Restaurados, `sha256sum -c` coincide en los dos.
+    - `./mvnw -q clean test`: 582 tests en 74 clases (573 + 9), 0 fallos ni errores, 139 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 - [ ] **TASK-07 · El `400` con `fieldErrors`**
   - Alcance:
