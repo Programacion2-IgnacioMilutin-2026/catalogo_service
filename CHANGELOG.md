@@ -121,3 +121,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Colacion, metodos en repositorios y modelos para buscar profesionales.
 - Filtro de profesionales por estado y categoria con paginacion, con su horario semanal. 
 - Caso de uso y service para fitlrar profesionales. 
+- Requests, responses y mappers web para la busqueda de un profesional.

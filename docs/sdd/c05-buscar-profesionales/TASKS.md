@@ -98,16 +98,33 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 3 · El request, las respuestas y el mapper
 
-- [ ] **TASK-05 · El request, las respuestas y el mapper web**
+- [x] **TASK-05 · El request, las respuestas y el mapper web**
   - Alcance:
     - `ProfessionalSearchRequest`: todos los campos como texto, y los días como lista de textos. Las reglas de RF-07 y D8 van como Bean Validation con mensajes fijos en inglés: días sin distinguir mayúsculas, `enabled` solo `true` o `false`, horas `HH:mm` o `HH:mm:ss`, enteros con sus rangos, vacíos válidos, y "`from` anterior a `to`" informado en `from` y revisado solo si las dos horas se pudieron leer.
+    - **Ajuste del 2026-11-21, aprobado por el usuario:** dos validaciones propias, `WholeNumber` (los enteros con su rango) y `TimeRange` (`from` anterior a `to`), en `web/dto`, cada una con su validador adentro (ver el PLAN, "Ajuste a P5 y P6").
     - `ProfessionalPageResponse`, `ProfessionalResponse`, `ProfessionalCategorySummaryResponse` y `WeeklyScheduleResponse`.
     - `ProfessionalDtoMapper`: `toDomain`, `toPage`, `toSize` y `toResponse`.
     - `ProfessionalDtoMapperTest` (nuevo).
   - Depende de: TASK-04
   - Resuelve: CA-03 (`nameWords()` y los espacios) y CA-18 (vacíos, mayúsculas y comas), en el mapper; base de CA-01
   - Validación: `./mvnw test -Dtest=ProfessionalDtoMapperTest`. Los vacíos llegan como ausentes; `monday`, `Monday` y `MONDAY` dan el mismo día; los días con comas y repetidos dan lo mismo; la página y el tamaño por defecto son 0 y 10; y `toResponse` conserva todos los campos (`hasNoNullFieldsOrProperties`). Las reglas de validación se prueban en TASK-07. Prueba en negativo: una línea menos en un Builder del mapper, y falla.
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 3).
+    - Creados `ProfessionalSearchRequest`, `WholeNumber` y `TimeRange` (las dos con su validador adentro), `ProfessionalPageResponse`, `ProfessionalResponse`, `ProfessionalCategorySummaryResponse`, `WeeklyScheduleResponse`, `ProfessionalDtoMapper` y `ProfessionalDtoMapperTest`.
+    - Las reglas del request:
+      - `@Pattern` para `enabled`, las horas (`ProfessionalSearchRequest.TIME_FORMAT`, que también usa `TimeRange`) y cada día, sin distinguir mayúsculas; las tres aceptan el vacío.
+      - `@WholeNumber` para `categoryId` (rango de `Long`), `page` (0 a `Integer.MAX_VALUE`) y `size` (1 a 100).
+      - `@TimeRange` sobre el request.
+    - `./mvnw test -Dtest=ProfessionalDtoMapperTest`: 7 tests, 0 fallos:
+      - un request completo da los filtros, con `nameWords()` separando "  tomás   ferr " en dos palabras y `monday`, `FRIDAY` y `Monday` dando dos días;
+      - los parámetros vacíos y los ausentes dan "sin filtros", con página 0 y tamaño 10;
+      - un día vacío junto a otro no cuenta;
+      - la respuesta conserva todos los campos del profesional, de su categoría y de su horario;
+      - un profesional sin horarios trae la lista vacía;
+      - `null` da `null`.
+    - Prueba en negativo: sin `.slotDurationMinutes(...)` en el Builder del horario, falló el test de los campos ("expected: 30"). Restaurado, `sha256sum -c` coincide.
+    - Las validaciones del request todavía no tienen test: las prueba TASK-07, con el controller, como estaba previsto.
+    - `./mvnw -q clean test`: 573 tests en 73 clases (566 + 7), 0 fallos ni errores, 153 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices.
 
 ## Etapa 4 · La entrada web
 
