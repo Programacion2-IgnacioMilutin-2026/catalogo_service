@@ -1,6 +1,6 @@
 # TASKS: C05 — Buscar profesionales
 
-SPEC: `docs/sdd/c05-buscar-profesionales/SPEC.md` (aprobada el 2026-11-20, con el cambio de las comas aprobado el mismo día). PLAN: `docs/sdd/c05-buscar-profesionales/PLAN.md` (aprobado el 2026-11-21). Tareas propuestas el 2026-11-21, pendientes de la aprobación del usuario.
+SPEC: `docs/sdd/c05-buscar-profesionales/SPEC.md` (aprobada el 2026-11-20, con el cambio de las comas aprobado el mismo día). PLAN: `docs/sdd/c05-buscar-profesionales/PLAN.md` (aprobado el 2026-11-21). Tareas aprobadas por el usuario el 2026-11-21. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-21, después del commit `25e94b4` con la SPEC, el PLAN y estas tareas).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C04 eran 522 tests en 70 clases, y TASK-01 toma la línea base. Ninguna tarea llama a la cátedra real ni lee el `.env`, salvo la prueba manual de TASK-11, que corre el usuario.
 
@@ -12,7 +12,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 1 · La búsqueda en la base
 
-- [ ] **TASK-01 · Las colaciones de `V4`, los filtros del dominio y la búsqueda por nombre en orden**
+- [x] **TASK-01 · Las colaciones de `V4`, los filtros del dominio y la búsqueda por nombre en orden**
   - Alcance:
     - `V4__spanish_order_and_search_for_professional_names.sql`: asigna `spanish_insensitive` a `professionals.first_name` y `last_name`, y crea la colación de búsqueda `search_insensitive` (ICU, `und-u-ks-level1`, no determinística) (P1).
     - `ProfessionalSearchCriteria` en `catalog/domain/model` (clase Lombok), con `nameWords()`.
@@ -28,7 +28,19 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`: los textos de CA-03 ("tomás ferreyra", "ferreyra tomás", "TOM ferr", "nunez", "ibanez", "ana", `%`, `_`) y el orden de CA-07 (Munro antes que Muñoz, desempate por `id`). En el log, Flyway llega a `v4`.
     - Los tests de `catalog` siguen en verde (`./mvnw test -Dtest='catalogo/catalog/**/*Test'`).
     - Pruebas en negativo: `V4` sin asignar la colación a las columnas (falla el orden); el nombre buscado con la colación de `V3` (falla "nunez"); y sin escapar los comodines (falla `%`).
-  - Resultado: pendiente
+  - Resultado: 2026-11-21 (tanda 1, autorizada ese día).
+    - Creados `V4__spanish_order_and_search_for_professional_names.sql`, `ProfessionalSearchCriteria` (con todos los filtros de P6; esta tarea usa solo el nombre) y `ProfessionalSearchRepositoryAdaptersTest`.
+    - Modificados `ProfessionalRepository` (`countMatching` y `findMatching`), `JpaProfessionalRepository` (`JpaSpecificationExecutor`), `JpaProfessionalRepositoryAdapter` (la condición por palabras con `collate` y los comodines escapados, y el orden por apellido, nombre e `id`) y `CatalogTables` (`insertProfessional` e `insertWeeklySchedule`; el segundo se usa desde TASK-03).
+    - Línea base, antes de tocar nada: `./mvnw -q clean test`, 522 tests en 70 clases, 0 fallos ni errores, 141 s.
+    - **El `collate` de Hibernate funciona:** `./mvnw test -Dtest=ProfessionalSearchRepositoryAdaptersTest`, 15 tests, 0 fallos. Pasaron "nunez" → Núñez e "ibanez" → Ibáñez, que solo encuentra la colación de búsqueda (la de la columna distingue la ñ). En el log, Flyway aplica `V1` a `V4` ("now at version v4").
+    - Los 13 textos de CA-03 dan lo esperado, y `countMatching` coincide con la cantidad encontrada. El orden de CA-07 salió: Álvarez (8), de la Fuente (7), Gómez Ana (5), gomez ana (6), Gómez Bruno (3), Munro (4), Muñoz (2), Núñez (9), Zárate (1).
+    - Prueba en negativo 1: `V4` sin las dos líneas `ALTER TABLE … COLLATE`, y falló solo el test del orden: la base puso Muñoz antes que Munro y no desempató 5 y 6 por `id`.
+    - Prueba en negativo 2: la búsqueda con `spanish_insensitive`, y fallaron exactamente "nunez" e "ibanez".
+    - Prueba en negativo 3: sin escapar los comodines, y fallaron `%` y `_`, que devolvieron a los cuatro. El caso `\` siguió pasando, como se esperaba: no distingue si se escapó, y solo comprueba que una barra no rompe la consulta.
+    - Restaurados `V4` y el adaptador, `sha256sum -c` coincide en los dos.
+    - `./mvnw test -Dtest='catalogo/catalog/**/*Test'`: 78 tests, 0 fallos.
+    - `./mvnw -q clean test`: 537 tests en 71 clases (522 + 15), 0 fallos ni errores, 140 s.
+    - Chequeos de la skill (§12): del 1 al 4 sin resultados; en el 5, los mismos 27 imports entre slices de antes (fachada y gateway de `synchronization`). TASK-01 no suma ninguno.
 
 - [ ] **TASK-02 · Categoría, estado, contar y la página**
   - Alcance: `JpaProfessionalRepositoryAdapter` suma los filtros por `categoryId` y `enabled`, y su combinación con el nombre. `ProfessionalSearchRepositoryAdaptersTest` suma esos casos, el conteo y la página (`findMatching` con `page` y `size`), y los resultados vacíos.

@@ -118,3 +118,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 2026-11-21
 ### Added
 - Documentacion de SDD del caso de uso C05-BuscarProfesionales.
+- Colacion, metodos en repositorios y modelos para buscar profesionales.
