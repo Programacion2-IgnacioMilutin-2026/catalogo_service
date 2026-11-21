@@ -12,6 +12,9 @@ public interface ProfessionalCategoryRepository {
 
     void deleteAllExcept(Collection<Long> ids);
 
-    // Las que existen entre esos ids; los que no están, no vienen.
+    // Las que existen entre esos ids.
     List<ProfessionalCategory> findAllByIds(Collection<Long> ids);
+
+    // Todas por nombre.
+    List<ProfessionalCategory> findAllOrderedByName();
 }
