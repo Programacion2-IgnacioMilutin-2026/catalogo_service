@@ -134,3 +134,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests de integracion para la validacion del jwt.
 - Documentacion de SDD del caso de uso C06-HorariosProfesional.
 - Ordenar los horarios semanales de Lunes a Domingo cronologicamente.
+- Adapter y puerto para buscar un prfoesional por el id. 
