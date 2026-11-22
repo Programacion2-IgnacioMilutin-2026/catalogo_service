@@ -379,6 +379,7 @@ class ProfessionalControllerTest {
         verify(professionalService).getProfessional(expected);
     }
 
+    // MockMvc no reenvía el error a /error: con el servidor real esta URL termina en 401 (ProfessionalsIntegrationTest).
     @Test
     void aUrlTheSecurityRejectsNeverReachesTheService() throws Exception {
         mockMvc.perform(get(URI.create(PROFESSIONALS + "/%0A15")).header(HttpHeaders.AUTHORIZATION, BEARER))

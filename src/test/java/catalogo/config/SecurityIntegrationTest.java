@@ -68,6 +68,7 @@ class SecurityIntegrationTest {
             "POST, /api/professional-categories, 403"})
     void anyOtherRouteWithoutATokenIsRejectedWithoutData(HttpMethod method, String path, int status) {
         tables.insertCategory(1, "Pediatría", "Atención de niños", true);
+        tables.insertProfessional(15, 1, "Valentina", "Ibáñez", true);
         tables.initializeAt(57);
 
         String body = restTestClient.method(method).uri(path).exchange()
@@ -75,7 +76,7 @@ class SecurityIntegrationTest {
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
                 .expectBody(String.class).returnResult().getResponseBody();
 
-        assertThat(Objects.toString(body, "")).doesNotContain("Pediatría");
+        assertThat(Objects.toString(body, "")).doesNotContain("Pediatría", "Valentina", "Ibáñez");
     }
 
     @ParameterizedTest(name = "{0}")

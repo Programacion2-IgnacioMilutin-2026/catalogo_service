@@ -1,6 +1,6 @@
 # TASKS: C06 — Consultar horarios semanales vigentes de un profesional
 
-SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`; tanda 3, TASK-05: autorizada el 2026-11-22, después del commit `7a39118`).
+SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`; tanda 3, TASK-05: autorizada el 2026-11-22, después del commit `7a39118`; tanda 4, TASK-06 a TASK-08: autorizada el 2026-11-22, después del commit `9d8a091`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`, por `testcase` (Surefire suma mal las `@Nested`); al cerrar la validación del JWT eran 728 casos en 81 clases.
 
@@ -151,7 +151,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
 
 ## Etapa 4 · La aplicación completa
 
-- [ ] **TASK-06 · C06 con el servidor real**
+- [x] **TASK-06 · C06 con el servidor real**
   - Alcance: `catalog/ProfessionalsIntegrationTest` suma los escenarios de C06, con sus cuatro profesionales de prueba, la ayuda que renombra tablas y la cátedra simulada como testigo (P6.1).
   - Depende de: TASK-05
   - Resuelve: CA-01, CA-02, CA-03, CA-04, CA-05, CA-06, CA-07, CA-08 y CA-10 con el servidor real
@@ -167,25 +167,53 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - CA-10: un método por resultado, cada uno con su línea y el `sub`, y el de la falla con la línea `failed` y el error; nunca el token.
     - La clase entera en verde, también sus tests de C05.
     - Prueba en negativo: `findById` devolviendo siempre vacío; fallan los de CA-01 a CA-03. Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 4). Se frenó por el hallazgo S3 (abajo) y siguió después de la decisión del usuario.
+    - `ProfessionalsIntegrationTest` suma 16 casos de C06 (10 métodos). La ayuda que renombra tablas recibe ahora el pedido además de la tabla; sus dos usos de C05 hacen el mismo pedido que antes.
+    - Primera corrida, `./mvnw test -Dtest=ProfessionalsIntegrationTest`: 35 casos (19 de C05 y 16 de C06), 34 en verde. Falló solo `aUrlTheSecurityRejectsAndAMissingIdNeverReachOneProfessional`: `/api/professionals/%0A15` con un token válido respondió `401`, no el `400` sin cuerpo de S1.
+    - **S3 · Las URL que rechaza el servicio, con el servidor real (hallazgo):** con una prueba descartable (aplicación completa en un puerto real, sin la cátedra; se borró con su clase compilada y su reporte):
+      - `/api/professionals/%0A15`, con token y sin token: `401` `application/problem+json`, `WWW-Authenticate: Bearer`, cuerpo `{"detail":"A valid bearer token is required","instance":"/error","status":401,"title":"Unauthorized"}`.
+      - Lo mismo en las rutas públicas: `/api/professionals/%0A` (con y sin token) y `/api/professional-categories%3B`.
+      - `/api/professionals/1%2F5` (barra codificada): `400` `text/html`, la página de error de Tomcat; no llega a Spring.
+      - `/api/professionals/15` con token: `200`, como siempre.
+      - Lectura: la seguridad de Spring rechaza la URL y pide un error `400`; el servidor real lo reenvía a la página interna `/error`, que la seguridad también protege, y como ese reenvío no lleva la autenticación, termina en el `401` de `SecurityProblemHandler`. `@WebMvcTest` no hace ese reenvío: por eso la prueba descartable del PLAN vio `400` sin cuerpo. Es lo que el `CLAUDE.md` anotaba como "sin comprobar" en "Cómo responde un error"; ya pasaba en C04 y C05 antes de C06.
+      - El usuario eligió a) el 2026-11-22: se corrigió S1 en la SPEC (la viñeta de RF-04, la fila "Entrada inválida", CA-05 y su fila en "Cómo se comprueba") con el texto que aprobó, y queda como limitación para la `007` y el `CLAUDE.md` (TASK-10). El código no cambió.
+    - Ajustes por S3: el caso de `%0A15` en la integración espera ahora el `401` en `problem+json` con `instance` `/error` y sin datos, con un comentario que explica el reenvío; `ProfessionalControllerTest.aUrlTheSecurityRejectsNeverReachesTheService` (TASK-04) sigue igual, con un comentario que aclara que `MockMvc` no hace ese reenvío.
+    - `./mvnw test -Dtest='ProfessionalsIntegrationTest,ProfessionalControllerTest'`: 35 y 68 casos, 0 fallos ni errores. Los 16 casos de C06, con el servidor real y el token de `sub` `42`:
+      - CA-01: el 601 por C06 es igual, como árbol JSON, a `items[1]` de C05, y a sí mismo con `?x=1`; horarios 701 y 702 en ese orden; la cátedra simulada no recibió pedidos; la línea `found with 2 weekly schedules`.
+      - CA-02: el 602 con `enabled` falso y su horario deshabilitado; el 603 habilitado, con la categoría deshabilitada.
+      - CA-03: el 604 con `weeklySchedules` vacío.
+      - CA-04: sin token y con uno alterado, `401` sin "Valentina" ni "Kinesiología", sin línea en el log y sin el token alterado en la salida; sin `auth`, vacío, `ROLE_USER` y `ROLE_ADMIN`: `200`.
+      - CA-05: `abc` con la copia sin inicializar, `400` `VALIDATION_ERROR` con un solo `fieldErrors` en `professionalId`, y la línea del manejador; `%0A15`, el `401` con `instance` `/error`; `/api/professionals/`, `404` sin `code`; sin líneas de C06.
+      - CA-06: sin versión local, `503` `CATALOG_NOT_INITIALIZED` sin el profesional y con él en la base, sin pedidos a la cátedra simulada, con la línea `catalog not initialized`.
+      - CA-07: `999`, `0` y `-1`, `404` `PROFESSIONAL_NOT_FOUND` sin datos, con la línea `not found`.
+      - CA-08: con `professionals` y, aparte, con `weekly_schedules` renombradas, `500` `INTERNAL_ERROR` sin el nombre de la tabla ni de la excepción, `Unexpected error` con `relation "…" does not exist` en el log, y la línea `failed` antes; las tablas volvieron a su nombre.
+      - CA-10: cada línea con el `sub` y el resultado, en los casos de arriba; el token válido no aparece en la salida.
+    - Prueba en negativo: `findById` devolviendo siempre vacío; fallaron 9 de 35: CA-01, CA-02, CA-03, los 4 de roles y los 2 de la falla de la base (sin leer la tabla no hay falla). Los 19 de C05 siguieron en verde. Restaurado el adaptador: `sha256sum -c` coincide.
 
-- [ ] **TASK-07 · La foto única de C06**
+- [x] **TASK-07 · La foto única de C06**
   - Alcance: `catalog/ProfessionalsConsistencyIntegrationTest` suma un método: con el espía que ya tiene sobre `ProfessionalRepository`, después de `findById` confirma desde otra conexión un cambio del nombre del profesional y de sus horarios, y la respuesta de C06 tiene que mostrar entera la versión anterior (P5, P6).
   - Depende de: TASK-04
   - Resuelve: CA-09
   - Validación:
     - `./mvnw test -Dtest=ProfessionalsConsistencyIntegrationTest`: los dos métodos en verde.
     - Prueba en negativo: `GetProfessionalUseCaseImpl` sin `REPEATABLE READ`; la respuesta muestra los horarios nuevos y el test falla. Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 4).
+    - `ProfessionalsConsistencyIntegrationTest` suma `aChangeConfirmedAfterReadingOneProfessionalIsNotMixedIntoItsSchedules`: el espía sobre `ProfessionalRepository`, después de que `findById(601)` lee, confirma desde otra conexión el apellido `Ibáñez Acosta`, el horario 701 a las 07:00 y un horario nuevo, el 702. El comentario de la clase cubre ahora la búsqueda y la consulta.
+    - `./mvnw test -Dtest=ProfessionalsConsistencyIntegrationTest`: 2 casos, 0 fallos ni errores. La respuesta de C06 trajo entera la versión anterior (`Ibáñez`, un horario a las 08:00:00), y el pedido siguiente, la nueva (`Ibáñez Acosta`, dos horarios, el primero a las 07:00:00).
+    - Prueba en negativo: `@Transactional(readOnly = true)` sin `REPEATABLE READ`; falló el caso nuevo con `JSON path "$.weeklySchedules.length()" expected:<1> but was:<2>`: el apellido viejo con los horarios nuevos, la mezcla que tiene que evitarse. Restaurado el caso de uso: `sha256sum -c` coincide.
 
-- [ ] **TASK-08 · La ruta protegida no deja ver datos**
+- [x] **TASK-08 · La ruta protegida no deja ver datos**
   - Alcance: `config/SecurityIntegrationTest`: `anyOtherRouteWithoutATokenIsRejectedWithoutData` inserta el profesional 15 con un nombre propio, y el cuerpo del `401` no lo contiene (P6).
   - Depende de: TASK-04
   - Resuelve: CA-04 con datos reales en la ruta
   - Validación:
     - `./mvnw test -Dtest=SecurityIntegrationTest`: en verde.
     - Prueba en negativo: sumar `GET /api/professionals/{professionalId}` a `PUBLIC_ENDPOINTS`; el caso de esa ruta falla, porque responde `200` con el nombre. Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 4).
+    - `SecurityIntegrationTest.anyOtherRouteWithoutATokenIsRejectedWithoutData` inserta el profesional 15 (Valentina Ibáñez), y el cuerpo de cada rechazo no contiene "Pediatría", "Valentina" ni "Ibáñez".
+    - `./mvnw test -Dtest=SecurityIntegrationTest`: 23 casos, 0 fallos ni errores.
+    - Prueba en negativo: la ruta de C06 sumada a `PUBLIC_ENDPOINTS`; fallaron 6 de 23: el caso de esa ruta y los otros cinco que piden `/api/professionals/15` sin un token aceptado. **No por el motivo previsto:** no respondió `200` con el nombre sino `500`, porque con la ruta pública el controller recibe `Principal` vacío y la línea del log falla. El test detecta igual la ruta abierta. La ruta es protegida a propósito, así que no se cambió nada. Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+    - La suite completa, al cerrar la tanda: `./mvnw -q clean test`, 783 casos en 82 clases (766 + 16 de TASK-06 + 1 de TASK-07), 0 fallos ni errores, 175 s.
 
 ## Etapa 5 · La prueba con turnos real
 
