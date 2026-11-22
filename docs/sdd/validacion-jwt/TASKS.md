@@ -1,6 +1,6 @@
 # TASKS: Validación del JWT en los endpoints protegidos
 
-SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas).
+SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C05 eran 630 tests en 76 clases.
 
@@ -51,7 +51,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 2 · La cadena
 
-- [ ] **TASK-02 · La cadena valida el token, ignora las rutas públicas y escribe los rechazos**
+- [x] **TASK-02 · La cadena valida el token, ignora las rutas públicas y escribe los rechazos**
   - Alcance:
     - `config/SecurityProblemHandler` (nuevo): punto de entrada y manejador de acceso denegado; `ProblemDetail` en `application/problem+json` con `title`, `status`, un `detail` fijo por estado e `instance`, sin `code`; el `401` con `WWW-Authenticate: Bearer`; nada al log (P4).
     - `config/SecurityConfig`: el resource server con el decodificador de TASK-01; el lector del token que no busca nada en `PUBLIC_ENDPOINTS` y delega en `DefaultBearerTokenResolver` en las demás rutas (P2); `SecurityProblemHandler` en los dos lugares del `401` y en el del `403`; `authenticated()` para lo demás, sin roles; CSRF como viene.
@@ -75,9 +75,24 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
       - el test movido, con el servidor real: los `GET` en `401` y los `POST` en `403`.
     - `./mvnw clean test` (se movió un test): la suite completa en verde y el conteo en los XML.
     - Pruebas en negativo: el resource server sin el lector propio (fallan las variantes de CA-07: un token inválido da `401` en una ruta pública); el manejador solo en el lugar general (falla CA-06: el `401` de un token inválido sale sin el cuerpo).
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 2, autorizada ese día).
+    - Creados `config/SecurityProblemHandler`, y en los tests `config/TestSecurityConfiguration`, `config/ProtectedRoutesSecurityTest` y `config/SecurityIntegrationTest`. Modificados `config/SecurityConfig`, `ProfessionalCategoryControllerTest` y `ProfessionalControllerTest` (importan `TestSecurityConfiguration`), y `ProfessionalCategoriesIntegrationTest` (sin el test de las otras rutas ni sus imports).
+    - `SecurityProblemHandler` escribe el `ProblemDetail` con `JacksonJsonHttpMessageConverter`, el conversor de Spring MVC, que registra la forma de `ProblemDetail` (visto con `javap`): por eso sale sin `type`, igual que los demás errores.
+    - `TestSecurityConfiguration` habilita `JwtProperties` con `@EnableConfigurationProperties` y registra la clave de test con un `DynamicPropertyRegistrar`; con eso los `@WebMvcTest` arrancan sin depender del `@ConfigurationPropertiesScan` (el riesgo del PLAN queda resuelto así, sin comprobar si el escaneo alcanzaba).
+    - `./mvnw test -Dtest='ProtectedRoutesSecurityTest,ProfessionalCategoryControllerTest,ProfessionalControllerTest,SecurityIntegrationTest,ProfessionalCategoriesIntegrationTest'`: 34, 10, 37, 4 y 6 tests, 0 fallos ni errores.
+      - CA-01: sin `Authorization`, `/api/professionals/15` y `/api/no-such-route` responden `401` `problem+json`, `status` 401, sin `code`.
+      - CA-02, CA-03, CA-05 y CA-06: `Basic abc`, `Bearer`, `Bearer `, `Bearer xxx`, y tokens de otro par, `HS256`, sin firma, alterado, vencido, sin `exp` y con `sub` `abc`: los once responden `401` con `WWW-Authenticate: Bearer` y exactamente el mismo cuerpo que sin token (`{"title":"Unauthorized","status":401,"detail":"A valid bearer token is required","instance":"/api/professionals/15"}`, comparado en modo estricto: sin `type` ni `code`).
+      - CA-07: las cinco variantes de los tests de C04 y C05, ahora con el token válido de verdad, responden igual que sin encabezado.
+      - CA-08: tokens válidos sin `auth`, con `auth` vacío, `ROLE_USER` y `ROLE_ADMIN`, en `/api/professionals/15`, `/api/synchronization/status` y `/api/no-such-route`: los 12 casos `404` `problem+json`.
+      - CA-09: `/api/professionals/abc` sin token, `401`; con un token válido, `404`.
+      - CA-14 en la web: `POST /api/professionals` y `POST /api/professional-categories` sin token, `403` con `{"title":"Forbidden","status":403,"detail":"Access is denied","instance":…}` en modo estricto y sin `WWW-Authenticate`; con `Bearer xxx`, `401`; con un token válido, `405`.
+      - El test movido, con el servidor real (`anyOtherRouteWithoutATokenIsRejectedWithoutData`): los dos `GET` en `401` y los dos `POST` en `403`, en `problem+json` y sin los datos de la copia.
+    - Prueba en negativo 1: el resource server sin el lector propio, y fallaron 3 variantes en cada test de controller (vencido, alterado y un texto que no es un JWT: `401` en una ruta pública). El token válido y `Basic` siguieron pasando, como se esperaba.
+    - Prueba en negativo 2: `SecurityProblemHandler` solo en el lugar general, y fallaron las 10 variantes con `Bearer` de CA-06: Spring respondió `WWW-Authenticate: Bearer error="invalid_token", …`, con el motivo. `Basic abc` siguió pasando, porque llega anónimo al lugar general.
+    - Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+    - `./mvnw -q clean test` (se movió un test): 695 tests en 79 clases, 0 fallos ni errores, 163 s (661, más 34 y 4 nuevos, menos los 4 casos movidos desde C04).
 
-- [ ] **TASK-03 · La clave de test en todos los contextos**
+- [x] **TASK-03 · La clave de test en todos los contextos**
   - Alcance:
     - `TestcontainersConfiguration` registra `catalogo.jwt.public-key-location` con la clave de `TestTokens` (P6.1).
     - No se toca código de producción.
@@ -87,7 +102,11 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw clean test`: la suite completa en verde, porque cambia la configuración de 36 clases, y el conteo en los XML.
     - En el log de la suite, el warning de la clave aparece solo en los contextos que no importan `TestcontainersConfiguration` (por ejemplo, el de la base detenida de C04).
     - Prueba en negativo: sin registrar la propiedad, el warning aparece en todos los contextos que importan `TestcontainersConfiguration`.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 2).
+    - Modificado `TestcontainersConfiguration`: un `DynamicPropertyRegistrar` con la clave de `TestTokens`.
+    - `./mvnw -q clean test`: 695 tests en 79 clases, 0 fallos ni errores, 163 s. Pasa también el token alterado de `ProfessionalsIntegrationTest`, ahora frente a una clave real (CA-07).
+    - El warning "is not configured" aparece 4 veces: en el contexto de `ProfessionalCategoriesDatabaseDownIntegrationTest`, el único `@SpringBootTest` que no importa `TestcontainersConfiguration` (tiene su propia base), y en los 3 casos sin propiedad de `JwtDecoderConfigTest`.
+    - Prueba en negativo: la corrida de la suite de TASK-02, con el mismo código salvo este cambio, tenía 27 warnings: uno por cada uno de los 24 contextos que arrancan la aplicación y los 3 del unitario. No se repitió rompiendo el archivo, porque esa corrida ya muestra el estado sin la propiedad.
 
 ## Etapa 3 · CORS
 

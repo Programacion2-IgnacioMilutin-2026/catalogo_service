@@ -126,5 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 2026-11-22
 ### Added 
-- Documentacion de SDD de la validacion del jwt.}
+- Documentacion de SDD de la validacion del jwt.
 - Propiedades, decodificador y añadido de clave publica.
+- Validador del jwt de rutas que no son publicas.
+- Tests de la validacion del jwt. 

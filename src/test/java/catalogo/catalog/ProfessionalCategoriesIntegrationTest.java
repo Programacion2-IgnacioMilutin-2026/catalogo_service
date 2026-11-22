@@ -5,13 +5,10 @@ import catalogo.catedra.FakeCatedraServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,7 +20,6 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -61,7 +57,6 @@ class ProfessionalCategoriesIntegrationTest {
     void emptyCatalogAfterTheStartupLogin() {
         tables = new CatalogTables(jdbcTemplate);
         tables.reset();
-        // El login del arranque corre en otro hilo: se espera para que no se cuente como un pedido de la consulta.
         await().atMost(Duration.ofSeconds(20)).until(() -> !CATEDRA.loginRequests().isEmpty());
     }
 
@@ -127,23 +122,6 @@ class ProfessionalCategoriesIntegrationTest {
         restTestClient.get().uri(CATEGORIES).exchange()
                 .expectStatus().isOk()
                 .expectBody().json("[]", JsonCompareMode.STRICT);
-    }
-
-    @ParameterizedTest(name = "{0} {1}")
-    @CsvSource({
-            "GET, /api/professionals/15",
-            "POST, /api/professionals",
-            "GET, /api/synchronization/status",
-            "POST, /api/professional-categories"})
-    void anyOtherRouteWithoutAuthenticationIsRejectedWithoutData(HttpMethod method, String path) {
-        tables.insertCategory(1, "Pediatría", "Atención de niños", true);
-        tables.initializeAt(57);
-
-        String body = restTestClient.method(method).uri(path).exchange()
-                .expectStatus().isForbidden()
-                .expectBody(String.class).returnResult().getResponseBody();
-
-        assertThat(Objects.toString(body, "")).doesNotContain("Pediatría");
     }
 
     private void assertNotInitializedAndNothingChanges() {

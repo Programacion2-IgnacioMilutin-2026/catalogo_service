@@ -10,7 +10,7 @@ import catalogo.catalog.domain.model.ProfessionalSearchCriteria;
 import catalogo.catalog.domain.model.ProfessionalWithSchedules;
 import catalogo.catalog.domain.model.WeeklySchedule;
 import catalogo.catalog.infrastructure.web.mapper.ProfessionalDtoMapper;
-import catalogo.config.SecurityConfig;
+import catalogo.config.TestSecurityConfiguration;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,7 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // La entrada web de la búsqueda de profesionales, con la seguridad y el manejador de errores reales.
 @ExtendWith(OutputCaptureExtension.class)
 @WebMvcTest(ProfessionalController.class)
-@Import({SecurityConfig.class, ProfessionalDtoMapper.class})
+@Import({TestSecurityConfiguration.class, ProfessionalDtoMapper.class})
 class ProfessionalControllerTest {
 
     private static final String PROFESSIONALS = "/api/professionals";
