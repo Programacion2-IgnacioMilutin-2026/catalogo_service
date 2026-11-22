@@ -64,7 +64,10 @@ public class ProfessionalDtoMapper {
                 .build();
     }
 
-    private ProfessionalResponse toResponse(ProfessionalWithSchedules item) {
+    public ProfessionalResponse toResponse(ProfessionalWithSchedules item) {
+        if (item == null) {
+            return null;
+        }
         Professional professional = item.getProfessional();
         return ProfessionalResponse.builder()
                 .id(professional.getId())

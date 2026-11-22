@@ -1,6 +1,6 @@
 # TASKS: C06 — Consultar horarios semanales vigentes de un profesional
 
-SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas).
+SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`, por `testcase` (Surefire suma mal las `@Nested`); al cerrar la validación del JWT eran 728 casos en 81 clases.
 
@@ -78,7 +78,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
 
 ## Etapa 2 · La entrada web
 
-- [ ] **TASK-04 · El endpoint de C06**
+- [x] **TASK-04 · El endpoint de C06**
   - Alcance:
     - `catalog/infrastructure/web/dto/WholeNumber`: su `@Target` suma `PARAMETER` (P1). La regla no cambia.
     - `config/ApiExceptionHandler`: sobrescribe `handleHandlerMethodValidationException` y responde `400` `VALIDATION_ERROR` con el mismo `detail` fijo que el `400` de C05 y un `fieldErrors` por parámetro, con su nombre y el mensaje de la regla, sin el valor (P1). Todavía sin la línea del log (TASK-05).
@@ -100,7 +100,21 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - Comprobación del PLAN (riesgos): `@WholeNumber` sobre el parámetro dispara la validación de Spring, y el manejador recibe el nombre `professionalId`. Si no, se frena y se vuelve a P1 con el usuario.
     - La suite completa en verde, porque el manejador y el controller también los usa C05.
     - Pruebas en negativo, por separado: quitar `@WholeNumber` del parámetro (fallan los `400`); quitar la sobrescritura del manejador (el `400` sale sin `code` ni `fieldErrors`). Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 2). Marcada después de que el usuario decidiera S2 (abajo).
+    - Modificados `WholeNumber` (`@Target` con `PARAMETER`), `ApiExceptionHandler` (sobrescribe `handleHandlerMethodValidationException`; arma `fieldErrors` desde `getParameterValidationResults()`, con el nombre del parámetro y el mensaje de cada error, la API vista con `javap` en Spring 7.0.10), `ProfessionalDtoMapper` (`toResponse(ProfessionalWithSchedules)` público y, como pide la skill para un mapper, `null` si recibe `null`) y `ProfessionalController` (el método de C06; el `503` en `catalogNotInitialized()`, que usa también C05; un comentario que avisa que la clase no lleva `@Validated`). Tests: `ProfessionalControllerTest`, `ProfessionalDtoMapperTest` y `ProtectedRoutesSecurityTest`.
+    - `./mvnw test -Dtest='ProfessionalControllerTest,ProfessionalDtoMapperTest,ProtectedRoutesSecurityTest'`: 62, 8 y 34 casos, 0 fallos ni errores.
+      - `200` con el JSON exacto (`STRICT`) del objeto de C05, con las horas `HH:mm:ss`; con `?x=1&professionalId=99`, la misma respuesta y el service recibe 15.
+      - `404` `PROFESSIONAL_NOT_FOUND` y `503` `CATALOG_NOT_INITIALIZED`, en `problem+json`.
+      - `abc`, `1.0`, `1e3`, `%2B15`, `0xF`, `%23F`, `%2015`, `1%205`, `15%20`, `%0915`, `%0115`, `%D9%A4%D9%A2`, `9223372036854775808` y `-9223372036854775809`: `400` con `title`, `status`, el `detail` fijo de C05, `code` `VALIDATION_ERROR` y `fieldErrors` igual a `[{"field": "professionalId", "message": "must be a whole number"}]`, y el service no se llamó. El `instance` es la ruta tal como llegó, codificada (por ejemplo, `/api/professionals/%0115`): ver S2.
+      - `015`, `0`, `-1`, `-0`, el mayor y el menor `Long` llegan al service como 15, 0, -1, 0 y los dos extremos.
+      - `%0A15`: `400` con el cuerpo vacío, y el service no se llamó.
+      - `ProtectedRoutesSecurityTest`: `aValidTokenGetsTheProfessionalWhateverItsRoles` (sin `auth`, vacío, `ROLE_USER` y `ROLE_ADMIN`: `200`) reemplaza los cuatro casos de `/api/professionals/15` de `aValidTokenReachesTheRouteWhateverItsRoles`, que sigue con las otras dos rutas (`404`); `aNonNumericProfessionalIdWithAValidTokenReachesTheRoute` pasó a `…ReachesItsValidation` (`400` `VALIDATION_ERROR` en `professionalId`). El resto de la clase, sin cambios.
+    - Comprobación del PLAN (riesgos): `@WholeNumber` sobre el parámetro dispara la validación de Spring, y el manejador recibe el nombre `professionalId`. Se cumple.
+    - Prueba en negativo 1: sin `@WholeNumber` en el parámetro; fallaron los 14 ids inválidos y nada más (14 de 62).
+    - Prueba en negativo 2: sin la sobrescritura del manejador (el método renombrado, sin `@Override`); fallaron los mismos 14, porque el `400` sale con el `detail` "Validation failure", sin `code` ni `fieldErrors`. Restaurados los dos archivos: `sha256sum -c` coincide.
+    - La suite completa: `./mvnw -q clean test`, 760 casos en 82 clases (734 + 25 del controller + 1 del mapper), 0 fallos ni errores, 166 s.
+    - Los cuatro primeros chequeos de la skill: sin salida.
+    - **S2 · El `instance` del `400` (hallazgo):** CA-05 decía "el cuerpo no contiene el valor recibido". El `detail` y los `fieldErrors` no lo contienen, pero el `instance`, que Spring pone en todo error del servicio (también en el `401` de la seguridad), es la ruta del pedido tal como llegó, codificada: con `abc`, `"instance": "/api/professionals/abc"`; con `%0115`, `/api/professionals/%0115`, sin el carácter de control. El usuario eligió a) el 2026-11-22: se aclaró la SPEC (CA-05, su fila en "Cómo se comprueba" y D2) con el texto que aprobó, y el código no cambió.
 
 ## Etapa 3 · Las líneas del `sub`
 

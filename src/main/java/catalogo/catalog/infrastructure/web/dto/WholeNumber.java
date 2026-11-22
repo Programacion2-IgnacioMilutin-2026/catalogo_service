@@ -14,7 +14,7 @@ import java.math.BigInteger;
 
 // Un número entero dentro de un rango.
 @Documented
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = WholeNumber.Validator.class)
 public @interface WholeNumber {

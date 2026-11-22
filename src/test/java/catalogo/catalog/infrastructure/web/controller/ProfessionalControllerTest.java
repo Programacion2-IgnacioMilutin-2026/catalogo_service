@@ -2,6 +2,7 @@ package catalogo.catalog.infrastructure.web.controller;
 
 import catalogo.TestTokens;
 import catalogo.catalog.application.exception.CatalogNotInitializedException;
+import catalogo.catalog.application.exception.ProfessionalNotFoundException;
 import catalogo.catalog.application.service.ProfessionalService;
 import catalogo.catalog.domain.model.Professional;
 import catalogo.catalog.domain.model.ProfessionalCategory;
@@ -31,6 +32,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.EnumSet;
@@ -42,6 +44,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
@@ -59,6 +62,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProfessionalControllerTest {
 
     private static final String PROFESSIONALS = "/api/professionals";
+    private static final String PROFESSIONAL = PROFESSIONALS + "/15";
+    private static final String BEARER = "Bearer " + TestTokens.valid();
+    private static final String VALENTINA_JSON = """
+            {
+              "id": 15,
+              "firstName": "Valentina",
+              "lastName": "Ibáñez",
+              "enabled": true,
+              "category": {"id": 1, "name": "Kinesiología", "enabled": false},
+              "weeklySchedules": [
+                {"id": 21, "dayOfWeek": "MONDAY", "startTime": "08:00:00", "endTime": "12:30:00",
+                 "slotDurationMinutes": 30, "enabled": true},
+                {"id": 22, "dayOfWeek": "THURSDAY", "startTime": "14:00:00", "endTime": "18:00:00",
+                 "slotDurationMinutes": 20, "enabled": false}
+              ]
+            }""";
     private static final String ONE_PROFESSIONAL_JSON = """
             {
               "items": [
@@ -282,21 +301,96 @@ class ProfessionalControllerTest {
         assertThat(criteria.getValue().getTo()).isEqualTo(LocalTime.of(23, 59));
     }
 
+    @Test
+    void oneProfessionalHasTheSameFieldsAsEachItemOfTheSearch() throws Exception {
+        given(professionalService.getProfessional(15L)).willReturn(valentina());
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().json(VALENTINA_JSON, JsonCompareMode.STRICT));
+    }
+
+    @Test
+    void queryParametersDoNotChangeTheProfessionalAsked() throws Exception {
+        given(professionalService.getProfessional(15L)).willReturn(valentina());
+
+        mockMvc.perform(get(PROFESSIONAL + "?x=1&professionalId=99").header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isOk())
+                .andExpect(content().json(VALENTINA_JSON, JsonCompareMode.STRICT));
+
+        verify(professionalService).getProfessional(15L);
+    }
+
+    @Test
+    void aProfessionalThatIsNotInTheCatalogAnswers404AsAProblem() throws Exception {
+        given(professionalService.getProfessional(999L)).willThrow(new ProfessionalNotFoundException(999L));
+
+        mockMvc.perform(get(PROFESSIONALS + "/999").header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.code").value("PROFESSIONAL_NOT_FOUND"))
+                .andExpect(jsonPath("$.detail").isString())
+                .andExpect(jsonPath("$.firstName").doesNotExist());
+    }
+
+    @Test
+    void aCatalogNotInitializedAnswers503AsAProblemAlsoForOneProfessional() throws Exception {
+        given(professionalService.getProfessional(15L)).willThrow(new CatalogNotInitializedException());
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.code").value("CATALOG_NOT_INITIALIZED"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"abc", "1.0", "1e3", "%2B15", "0xF", "%23F", "%2015", "1%205", "15%20", "%0915",
+            "%0115", "%D9%A4%D9%A2", "9223372036854775808", "-9223372036854775809"})
+    void anInvalidProfessionalIdAnswers400WithItsFieldAndNothingIsAsked(String id) throws Exception {
+        mockMvc.perform(get(URI.create(PROFESSIONALS + "/" + id)).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(content().json("""
+                        {"title": "Bad Request", "status": 400, "detail": "One or more parameters are invalid",
+                         "code": "VALIDATION_ERROR",
+                         "fieldErrors": [{"field": "professionalId", "message": "must be a whole number"}]}
+                        """, JsonCompareMode.LENIENT))
+                .andExpect(jsonPath("$.instance").value(PROFESSIONALS + "/" + id));
+
+        verifyNoInteractions(professionalService);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"015, 15", "0, 0", "-1, -1", "-0, 0", "9223372036854775807, 9223372036854775807",
+            "-9223372036854775808, -9223372036854775808"})
+    void wholeNumbersReachTheServiceAsTheirValue(String id, long expected) throws Exception {
+        given(professionalService.getProfessional(anyLong())).willReturn(valentina());
+
+        mockMvc.perform(get(PROFESSIONALS + "/" + id).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isOk());
+
+        verify(professionalService).getProfessional(expected);
+    }
+
+    @Test
+    void aUrlTheSecurityRejectsNeverReachesTheService() throws Exception {
+        mockMvc.perform(get(URI.create(PROFESSIONALS + "/%0A15")).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(""));
+
+        verifyNoInteractions(professionalService);
+    }
+
     private void givenTwoProfessionals() {
-        ProfessionalCategory category = ProfessionalCategory.builder()
-                .id(1L).name("Kinesiología").description("Rehabilitación física").enabled(false).build();
-        Professional valentina = Professional.builder()
-                .id(15L).firstName("Valentina").lastName("Ibáñez").enabled(true).category(category).build();
         Professional tomas = Professional.builder()
-                .id(16L).firstName("Tomás").lastName("Ferreyra").enabled(false).category(category).build();
+                .id(16L).firstName("Tomás").lastName("Ferreyra").enabled(false).category(kinesiology()).build();
         ProfessionalPage page = ProfessionalPage.builder()
                 .professionals(List.of(
-                        ProfessionalWithSchedules.builder()
-                                .professional(valentina)
-                                .weeklySchedules(List.of(
-                                        schedule(21, valentina, DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(12, 30), 30, true),
-                                        schedule(22, valentina, DayOfWeek.THURSDAY, LocalTime.of(14, 0), LocalTime.of(18, 0), 20, false)))
-                                .build(),
+                        valentina(),
                         ProfessionalWithSchedules.builder()
                                 .professional(tomas)
                                 .weeklySchedules(List.of())
@@ -304,6 +398,22 @@ class ProfessionalControllerTest {
                 .totalItems(2)
                 .build();
         given(professionalService.searchProfessionals(any(), anyInt(), anyInt())).willReturn(page);
+    }
+
+    private static ProfessionalCategory kinesiology() {
+        return ProfessionalCategory.builder()
+                .id(1L).name("Kinesiología").description("Rehabilitación física").enabled(false).build();
+    }
+
+    private static ProfessionalWithSchedules valentina() {
+        Professional valentina = Professional.builder()
+                .id(15L).firstName("Valentina").lastName("Ibáñez").enabled(true).category(kinesiology()).build();
+        return ProfessionalWithSchedules.builder()
+                .professional(valentina)
+                .weeklySchedules(List.of(
+                        schedule(21, valentina, DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(12, 30), 30, true),
+                        schedule(22, valentina, DayOfWeek.THURSDAY, LocalTime.of(14, 0), LocalTime.of(18, 0), 20, false)))
+                .build();
     }
 
     private static WeeklySchedule schedule(long id, Professional professional, DayOfWeek day, LocalTime start,

@@ -1,8 +1,11 @@
 package catalogo.config;
 
 import catalogo.TestTokens;
+import catalogo.catalog.CatalogSamples;
 import catalogo.catalog.application.service.ProfessionalCategoryService;
 import catalogo.catalog.application.service.ProfessionalService;
+import catalogo.catalog.domain.model.Professional;
+import catalogo.catalog.domain.model.ProfessionalWithSchedules;
 import catalogo.catalog.infrastructure.web.controller.ProfessionalCategoryController;
 import catalogo.catalog.infrastructure.web.controller.ProfessionalController;
 import catalogo.catalog.infrastructure.web.mapper.ProfessionalCategoryDtoMapper;
@@ -22,9 +25,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -96,6 +101,29 @@ class ProtectedRoutesSecurityTest {
                 Named.of("with a subject that is not a user id", "Bearer " + TestTokens.withSubject("abc")));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("roles")
+    void aValidTokenGetsTheProfessionalWhateverItsRoles(String auth) throws Exception {
+        Professional professional = CatalogSamples.professional(15, CatalogSamples.category(1));
+        given(professionalService.getProfessional(15L)).willReturn(ProfessionalWithSchedules.builder()
+                .professional(professional)
+                .weeklySchedules(List.of())
+                .build());
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, "Bearer " + TestTokens.withAuth(auth)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id").value(15));
+    }
+
+    static Stream<Named<String>> roles() {
+        return Stream.of(
+                Named.of("without auth", null),
+                Named.of("empty auth", ""),
+                Named.of("ROLE_USER", "ROLE_USER"),
+                Named.of("ROLE_ADMIN", "ROLE_ADMIN"));
+    }
+
     @ParameterizedTest(name = "{0} on {1}")
     @MethodSource
     void aValidTokenReachesTheRouteWhateverItsRoles(String auth, String path) throws Exception {
@@ -107,7 +135,7 @@ class ProtectedRoutesSecurityTest {
 
     static Stream<Arguments> aValidTokenReachesTheRouteWhateverItsRoles() {
         Stream.Builder<Arguments> cases = Stream.builder();
-        for (String path : new String[]{PROFESSIONAL, "/api/synchronization/status", MISSING_ROUTE}) {
+        for (String path : new String[]{"/api/synchronization/status", MISSING_ROUTE}) {
             cases.add(arguments(Named.of("without auth", null), path));
             cases.add(arguments(Named.of("empty auth", ""), path));
             cases.add(arguments(Named.of("ROLE_USER", "ROLE_USER"), path));
@@ -123,9 +151,11 @@ class ProtectedRoutesSecurityTest {
     }
 
     @Test
-    void aNonNumericProfessionalIdWithAValidTokenReachesTheRoute() throws Exception {
+    void aNonNumericProfessionalIdWithAValidTokenReachesItsValidation() throws Exception {
         mockMvc.perform(get("/api/professionals/abc").header(HttpHeaders.AUTHORIZATION, "Bearer " + TestTokens.valid()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("professionalId"));
     }
 
     @ParameterizedTest
