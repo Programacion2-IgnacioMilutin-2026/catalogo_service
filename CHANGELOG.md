@@ -123,3 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Caso de uso y service para fitlrar profesionales. 
 - Requests, responses, mapper y controller web para la busqueda de un profesional.
 - Tests de integracion del caso de uso C05-BuscarProfesionales.
+
+## 2026-11-22
+### Added 
+- Documentacion de SDD de la validacion del jwt.}
+- Propiedades, decodificador y añadido de clave publica.
