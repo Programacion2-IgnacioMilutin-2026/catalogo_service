@@ -1,6 +1,6 @@
 # TASKS: C06 — Consultar horarios semanales vigentes de un profesional
 
-SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`).
+SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`; tanda 3, TASK-05: autorizada el 2026-11-22, después del commit `7a39118`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`, por `testcase` (Surefire suma mal las `@Nested`); al cerrar la validación del JWT eran 728 casos en 81 clases.
 
@@ -118,7 +118,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
 
 ## Etapa 3 · Las líneas del `sub`
 
-- [ ] **TASK-05 · El `sub` en el log**
+- [x] **TASK-05 · El `sub` en el log**
   - Alcance:
     - `ProfessionalController`: el método de C06 recibe `Principal` y escribe al terminar, en un `finally`, `Professional {id} requested by user {sub}: {resultado}`, con `found with N weekly schedules`, `not found`, `catalog not initialized` o `failed` (P4).
     - `ApiExceptionHandler`: el método de TASK-04 escribe `Invalid parameters for {método} {plantilla de la ruta} requested by user {sub}: {campos}`, con los nombres de los campos y nunca sus valores (P4).
@@ -134,7 +134,20 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - Comprobación del PLAN (riesgos): el manejador obtiene del pedido el `sub` y la plantilla de la ruta. Si no, se frena y se vuelve a P4 con el usuario.
     - La suite completa en verde.
     - Pruebas en negativo, por separado: la línea sin el `sub` (fallan los del log); la línea fuera del `finally`, solo al final del camino feliz (falla el de la falla del service). Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 3, autorizada ese día después del commit `7a39118`).
+    - Modificados `ProfessionalController` (`@Slf4j`; el método de C06 recibe `Principal`, guarda el resultado en una variable y escribe la línea en el `finally`; el "found" se anota recién después de armar la respuesta), `ApiExceptionHandler` (el método del `400` escribe la línea con el método, la plantilla de la ruta, que toma de `HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE`, el `sub` del pedido, o `anonymous` si no lo hubiera, y los nombres de los campos) y `ProfessionalControllerTest` (6 casos nuevos; el token en su propia constante).
+    - `./mvnw test -Dtest='ProfessionalControllerTest,ProtectedRoutesSecurityTest'`: 68 y 34 casos, 0 fallos ni errores. Con el token de `sub` `42`, cada caso de log encontró exactamente una línea `requested by user` y nunca el token:
+      - `Professional 15 requested by user 42: found with 2 weekly schedules`;
+      - `Professional 999 requested by user 42: not found`;
+      - `Professional 15 requested by user 42: catalog not initialized`;
+      - `Professional 15 requested by user 42: failed`, antes del `Unexpected error` con la traza;
+      - `%0115`: `Invalid parameters for GET /api/professionals/{professionalId} requested by user 42: professionalId`, y el carácter `\u0001` no aparece en la salida;
+      - sin token, con un token alterado y con `%0A15`: ninguna línea, ni el token, y el service no se llamó.
+    - Comprobación del PLAN (riesgos): el manejador obtiene del pedido el `sub` y la plantilla de la ruta. Se cumple.
+    - Prueba en negativo 1: la línea del controller con `?` en lugar del `sub`; fallaron los 4 tests del log del controller (4 de 68).
+    - Prueba en negativo 2: la línea solo al final del camino feliz, sin el `finally`; fallaron los 3 que no terminan en `200` (no existe, sin inicializar y la falla). Restaurado el controller las dos veces: `sha256sum -c` coincide.
+    - La suite completa: `./mvnw -q clean test`, 766 casos en 82 clases (760 + 6), 0 fallos ni errores, 168 s.
+    - Los cuatro primeros chequeos de la skill: sin salida.
 
 ## Etapa 4 · La aplicación completa
 

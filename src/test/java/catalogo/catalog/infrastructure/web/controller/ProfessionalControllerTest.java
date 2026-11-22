@@ -31,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.time.DayOfWeek;
@@ -63,7 +64,9 @@ class ProfessionalControllerTest {
 
     private static final String PROFESSIONALS = "/api/professionals";
     private static final String PROFESSIONAL = PROFESSIONALS + "/15";
-    private static final String BEARER = "Bearer " + TestTokens.valid();
+    private static final String TOKEN = TestTokens.valid();
+    private static final String BEARER = "Bearer " + TOKEN;
+    private static final String REQUEST_LINE = "requested by user";
     private static final String VALENTINA_JSON = """
             {
               "id": 15,
@@ -383,6 +386,78 @@ class ProfessionalControllerTest {
                 .andExpect(content().string(""));
 
         verifyNoInteractions(professionalService);
+    }
+
+    @Test
+    void aProfessionalFoundLeavesOneLineWithTheUserAndHowManySchedules(CapturedOutput output) throws Exception {
+        given(professionalService.getProfessional(15L)).willReturn(valentina());
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, BEARER)).andExpect(status().isOk());
+
+        assertOneRequestLine(output, "Professional 15 requested by user 42: found with 2 weekly schedules");
+    }
+
+    @Test
+    void aProfessionalNotFoundLeavesOneLineWithTheUser(CapturedOutput output) throws Exception {
+        given(professionalService.getProfessional(999L)).willThrow(new ProfessionalNotFoundException(999L));
+
+        mockMvc.perform(get(PROFESSIONALS + "/999").header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isNotFound());
+
+        assertOneRequestLine(output, "Professional 999 requested by user 42: not found");
+    }
+
+    @Test
+    void aCatalogNotInitializedLeavesOneLineWithTheUser(CapturedOutput output) throws Exception {
+        given(professionalService.getProfessional(15L)).willThrow(new CatalogNotInitializedException());
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isServiceUnavailable());
+
+        assertOneRequestLine(output, "Professional 15 requested by user 42: catalog not initialized");
+    }
+
+    @Test
+    void aFailureLeavesTheLineWithTheUserJustBeforeTheError(CapturedOutput output) throws Exception {
+        given(professionalService.getProfessional(15L))
+                .willThrow(new DataAccessResourceFailureException("Connection to catalog-db:5432 refused"));
+
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isInternalServerError());
+
+        assertOneRequestLine(output, "Professional 15 requested by user 42: failed");
+        assertThat(output.getAll().indexOf("requested by user 42: failed"))
+                .isNotNegative()
+                .isLessThan(output.getAll().indexOf("Unexpected error"));
+    }
+
+    @Test
+    void anInvalidIdLeavesTheLineOfTheHandlerWithTheUserAndWithoutTheValue(CapturedOutput output) throws Exception {
+        mockMvc.perform(get(URI.create(PROFESSIONALS + "/%0115")).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isBadRequest());
+
+        assertOneRequestLine(output,
+                "Invalid parameters for GET /api/professionals/{professionalId} requested by user 42: professionalId");
+        assertThat(output.getAll()).doesNotContain("\u0001");
+    }
+
+    @Test
+    void requestsTheSecurityRejectsLeaveNoLine(CapturedOutput output) throws Exception {
+        String altered = TestTokens.altered();
+
+        mockMvc.perform(get(PROFESSIONAL)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(PROFESSIONAL).header(HttpHeaders.AUTHORIZATION, "Bearer " + altered))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(URI.create(PROFESSIONALS + "/%0A15")).header(HttpHeaders.AUTHORIZATION, BEARER))
+                .andExpect(status().isBadRequest());
+
+        assertThat(output.getAll()).doesNotContain(REQUEST_LINE).doesNotContain(altered).doesNotContain(TOKEN);
+        verifyNoInteractions(professionalService);
+    }
+
+    private static void assertOneRequestLine(CapturedOutput output, String line) {
+        assertThat(output.getAll()).contains(line).doesNotContain(TOKEN);
+        assertThat(StringUtils.countOccurrencesOf(output.getAll(), REQUEST_LINE)).isEqualTo(1);
     }
 
     private void givenTwoProfessionals() {
