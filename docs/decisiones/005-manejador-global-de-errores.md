@@ -47,7 +47,7 @@ pedido
 Qué no hace:
 
 - **No decide los estados ni los códigos de los slices.** Eso sigue en el controller de cada slice, como pide la skill. Los únicos códigos que pone son los generales del contrato común (§2), que no son de ningún slice: `INTERNAL_ERROR` y, desde C05, `VALIDATION_ERROR`. El manejador no importa nada de ningún slice.
-- **No responde los rechazos de la seguridad** (`401` y `403`): ocurren antes de llegar a un controller. Se resuelven en la funcionalidad de la validación del JWT, como quedó anotado en la SPEC de C04.
+- **No responde los rechazos de la seguridad** (`401` y `403`): ocurren antes de llegar a un controller. Los escribe `SecurityProblemHandler`, con la misma forma (decisión 007).
 - **No cambia el formato de las líneas del log**, que sigue siendo el de Spring Boot.
 
 Empezó con lo que C04 necesitaba. C05 le sumó el `400` `VALIDATION_ERROR` con `fieldErrors` (punto 4). En C04 este texto decía que el manejador "no decide estados ni códigos", aunque ya ponía `INTERNAL_ERROR`; se precisó al sumar `VALIDATION_ERROR` (P5 del PLAN de C05).

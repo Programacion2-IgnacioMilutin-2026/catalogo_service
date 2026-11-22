@@ -1,6 +1,6 @@
 # TASKS: Validación del JWT en los endpoints protegidos
 
-SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`; tanda 4, TASK-05 y TASK-06: autorizada el 2026-11-22, después del commit `60cd45e`).
+SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`; tanda 4, TASK-05 y TASK-06: autorizada el 2026-11-22, después del commit `60cd45e`; tanda 5, TASK-07 y TASK-08: autorizada el 2026-11-22, después del commit `0c88e5f`; tanda 6, TASK-09: autorizada el 2026-11-22, sin commit de la tanda 5, que el usuario commitea junto con el cierre).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C05 eran 630 tests en 76 clases.
 
@@ -178,7 +178,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 5 · Regresión y prueba con turnos
 
-- [ ] **TASK-07 · La suite completa**
+- [x] **TASK-07 · La suite completa**
   - Alcance: sin cambios de código; regresión y cobertura.
   - Depende de: TASK-05, TASK-06
   - Resuelve: la regresión del PLAN
@@ -186,9 +186,12 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - `./mvnw clean verify`: conteo en los XML y cobertura de JaCoCo de las clases nuevas.
     - Los tres E2E siguen compilando y se saltean sin credenciales: `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>`.
     - Los cinco chequeos de la skill (`SKILL.md` §12), con la salida esperada.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 5, autorizada ese día).
+    - `./mvnw -q clean verify`: 728 casos en 81 clases, 0 fallos ni errores, 156 s. JaCoCo (`target/site/jacoco/jacoco.xml`): líneas 1694/1739 (97,4 %) y ramas 587/623 (94,2 %); al cerrar C05, 97,3 % y 94,0 %. Las clases nuevas de `config`, completas: `JwtDecoderConfig` 45/45 líneas y 20/20 ramas, `SecurityConfig` 28/28 y 2/2, `SecurityProblemHandler` 12/12, `JwtProperties` y `CorsProperties` 1/1.
+    - `./mvnw test -Pe2e -Dtests.env-file=/nonexistent/catalogo-e2e.env` (después de borrar `target/surefire-reports`): los tres E2E compilan y se saltean, un caso salteado cada uno, sin fallos ni llamadas a la cátedra.
+    - Chequeos de la skill, desde la raíz: el 1 (dominio), el 2 (aplicación), el 3 (entidades JPA) y el 4 (`@Autowired`) no imprimen nada. El 5 (imports entre slices) imprime 27 líneas, todas de `synchronization` hacia `catalog` (15) y `catedra` (12): la fachada y el gateway ya autorizados (C01 y C02, decisión 004). `git diff --stat 29da17f HEAD -- src/main/java src/main/resources` muestra que desde el cierre de C05 solo cambiaron `config` y `application.yaml`, así que no hay imports nuevos. `config` no importa ningún slice, y ningún slice importa `config`.
 
-- [ ] **TASK-08 · La prueba con un token real de turnos (la corre el usuario)**
+- [x] **TASK-08 · La prueba con un token real de turnos (la corre el usuario)**
   - Alcance: prueba manual con turnos y catálogo en local, sin la cátedra (P6.4). Se le pasa al usuario la lista de pedidos y los comandos, con las variables de la cátedra vacías en los dos servicios y sin Kafka ni tareas programadas; los nombres exactos de las variables de turnos se confirman en su `application.yaml` antes de pasarlos. Deja un usuario de prueba en la base de desarrollo de turnos. Al terminar, todo queda como estaba (aplicaciones detenidas, compose en su estado previo).
   - Depende de: TASK-07
   - Resuelve: la restricción de la SPEC (los tokens de T02 se validan sin cambios en turnos)
@@ -198,11 +201,21 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
     - sin token y con el token alterado: `401`;
     - `GET /api/professionals` con y sin token: la misma respuesta;
     - el log de catálogo, sin el token y sin el warning de la clave.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 5). La corrió el usuario en su terminal, con un script de un solo uso que guardaba el token solo en memoria y dejaba un resultado sin él; se revisó que el resultado no tuviera nada con forma de JWT antes de leerlo.
+    - Turnos (`turnos_service`, `main` `8151679`, con su base de desarrollo) y catálogo (con la base de desarrollo, que tiene el snapshot 422), los dos con las variables de la cátedra vacías y sin Kafka. Turnos también sin el barrido ni la reconciliación. Catálogo con `CATALOGO_JWT_PUBLIC_KEY_LOCATION=file:../turnos_service/secrets/jwt-public.pem` y el log en `target/manual-jwt.log`.
+    - Turnos: `POST /api/register` del usuario de prueba `catalogo.jwt.1795363639`, `201`; `POST /api/authenticate`, `200` con el token. El usuario queda en la base de desarrollo de turnos (`sub` 6).
+    - **El token real de turnos:** encabezado `{"kid": "…", "alg": "RS256"}`, con un `kid` (el identificador de la clave) y sin `typ`; claims `auth`, `exp`, `iat` y `sub`, con `sub` `6`, `auth` `ROLE_USER` y 86400 s de vigencia. Catálogo no lee el `kid`: valida con su única clave.
+    - Catálogo, `GET /api/professionals/15`:
+      - con el token de turnos, `404` `application/problem+json` (`"detail":"No static resource api/professionals/15."`): pasó la seguridad. **Cumple la restricción de la SPEC: un token de T02 se valida sin cambios en turnos.**
+      - sin token, `401` con `WWW-Authenticate: Bearer` y `{"detail":"A valid bearer token is required","instance":"/api/professionals/15","status":401,"title":"Unauthorized"}`;
+      - con el token alterado (un carácter de la firma), el mismo `401` y el mismo cuerpo.
+    - Rutas públicas, con y sin el token: `/api/professional-categories` (`200`, 932 caracteres), `/api/professionals` (`200`, 3742) y `/api/professionals?size=3` (`200`, 1191), idénticas en los tres casos.
+    - El log de catálogo: el token aparece 0 veces y el warning de la clave, 0. Solo hay un `WARN` (`Technical login disabled: missing configuration properties`) y un `ERROR` (`Technical login configuration error, no retries until restart`), los esperables por arrancar sin la cátedra (como en TASK-11 de C04).
+    - Al terminar: los dos servicios detenidos y las dos bases bajadas por el usuario (`docker compose down`, sin `-v`); `docker ps` sin contenedores, como antes de empezar. Se borraron el script, su resultado y `target/manual-jwt.log`.
 
 ## Etapa 6 · Cierre
 
-- [ ] **TASK-09 · Documentación de cierre**
+- [x] **TASK-09 · Documentación de cierre**
   - Alcance:
     - `docs/decisiones/007-seguridad-del-servicio.md` (nuevo): las decisiones y limitaciones de RF-13, con por qué C06 está protegido.
     - `docs/decisiones/005-manejador-global-de-errores.md`: la línea de "Qué no hace" sobre los rechazos de la seguridad (P7).
@@ -211,4 +224,8 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Depende de: TASK-08
   - Resuelve: CA-15
   - Validación: revisar el texto `007` contra la lista de RF-13 y contra lo observado en CA-01 a CA-14; ninguna afirmación sin evidencia en este documento.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 6, autorizada ese día; el usuario commitea las tandas 5 y 6 juntas).
+    - Creado `docs/decisiones/007-seguridad-del-servicio.md`. Modificados `docs/decisiones/005-manejador-global-de-errores.md` (la línea de los rechazos de la seguridad en "Qué no hace"), `CLAUDE.md` y `docs/sdd/validacion-jwt/PLAN.md` (P5: el aviso de no usar `*` lo dan la `007` y el `CLAUDE.md`, porque el usuario lo sacó del `.env.example` al commitear TASK-04 y en el cierre eligió dejarlo así).
+    - `CLAUDE.md`: las dos variables en Requisitos y en la tabla de propiedades; una fila en Comandos para correr con la clave de turnos (la de TASK-08); el resource server en Datos del proyecto; `config` en la tabla de slices; "Validación del JWT: ninguna excepción nueva"; la sección "Seguridad" reescrita (el token, la clave, los rechazos en los tres lugares, CSRF, CORS, cómo hacer pública una ruta y qué hacer con un endpoint protegido nuevo); el reenvío a `/error`; lo comprobado con turnos real; los tests (`TestcontainersConfiguration` con la clave, `TestSecurityConfiguration`, las cinco clases de seguridad, `TestTokens` ampliado, contar por `testcase` con `@Nested`, la suite en 728 casos); y `validacion-jwt` y `007` en "Documentación del servicio".
+    - CA-15, revisión de la `007` contra RF-13: tiene las seis decisiones (qué es público y por qué se ignora el token; por qué C06 está protegido y por qué viaja el JWT del usuario; qué token se acepta; la clave; los rechazos; CORS y CSRF, con la diferencia con turnos) y las ocho limitaciones (sin revocación, cualquier portador en C06, la ventana del vencimiento, sin clave `401`, el cambio de clave manual, la trazabilidad a medias, sin roles hasta C07, sin TLS). Cada afirmación sobre el comportamiento tiene su evidencia en este documento: los `401` y su cuerpo (TASK-02 y TASK-05), el `403` de CSRF y de CORS (TASK-02 y TASK-04), la clave ausente (TASK-01 y TASK-06), el token real con `kid` y sin `typ` (TASK-08), y que un navegador de otro origen antes recibía `200` (la prueba en negativo de TASK-04). Lo único que no se ejecutó, que la propiedad de Spring Boot no deja arrancar sin clave, está marcado como visto en el código.
+    - Sin cambios de código desde TASK-07: no se volvió a correr la suite.
