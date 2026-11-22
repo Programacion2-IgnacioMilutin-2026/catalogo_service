@@ -131,3 +131,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validador del jwt de rutas que no son publicas.
 - Tests de la validacion del jwt. 
 - Configuracion del CORS.
+- Tests de integracion para la validacion del jwt.

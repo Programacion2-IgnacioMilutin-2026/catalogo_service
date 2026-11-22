@@ -1,6 +1,6 @@
 # TASKS: Validación del JWT en los endpoints protegidos
 
-SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`).
+SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`; tanda 4, TASK-05 y TASK-06: autorizada el 2026-11-22, después del commit `60cd45e`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C05 eran 630 tests en 76 clases.
 
@@ -139,7 +139,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 4 · La aplicación completa
 
-- [ ] **TASK-05 · La seguridad con el servidor real**
+- [x] **TASK-05 · La seguridad con el servidor real**
   - Alcance:
     - `config/SecurityIntegrationTest` se amplía: los `401` con el servidor real (incluido el reenvío interno a `/error`, que `@WebMvcTest` no hace); C04 y C05 con el token válido de verdad y las demás variantes; un `POST` con un token inválido y con uno válido; y la salida capturada.
     - No se toca código de producción.
@@ -152,9 +152,16 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
       - CA-14: `POST` con un token inválido, `401`; con uno válido, `405`;
       - CA-11: ni la salida ni los cuerpos contienen los tokens usados.
     - Prueba en negativo: el manejador solo en el lugar general (falla el cuerpo del `401` de un token inválido también con el servidor real).
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 4, autorizada ese día).
+    - Modificado `config/SecurityIntegrationTest`: suma la salida capturada (`OutputCaptureExtension`) y 19 casos.
+    - `./mvnw test -Dtest=SecurityIntegrationTest`: 23 casos (los 4 de TASK-02 y 19 nuevos), sin fallos ni errores, con Tomcat en un puerto aleatorio.
+      - CA-06: sin token, y con `xxx`, vencido, alterado y de otro par, `401` con `WWW-Authenticate: Bearer` y el mismo cuerpo, comparado en modo estricto. Con el servidor real tampoco hay reenvío a `/error`: el manejador escribe la respuesta él mismo.
+      - CA-07: C04 y C05 con la copia inicializada (una categoría y un profesional), con un token válido de verdad, vencido, alterado, `Bearer xxx` y `Basic abc`: los 10 casos responden `200` con el mismo cuerpo que sin encabezado.
+      - CA-14: `POST` a las dos rutas con `Bearer xxx`, `401` `problem+json`; con un token válido, `405` `problem+json`.
+      - CA-11: en los casos con un token con forma de JWT, la salida no lo contiene. Los textos cortos (`xxx`, `abc`) no se buscan, porque podrían coincidir con cualquier otra línea.
+    - Prueba en negativo: `SecurityProblemHandler` solo en el lugar general, y fallaron 6: los 4 tokens rechazados (Spring respondió `WWW-Authenticate: Bearer error="invalid_token", …`) y los 2 `POST` con `Bearer xxx` (sin `Content-Type`: Spring no escribe cuerpo). Restaurado `SecurityConfig`: `sha256sum -c` coincide.
 
-- [ ] **TASK-06 · El servicio sin clave**
+- [x] **TASK-06 · El servicio sin clave**
   - Alcance:
     - `config/SecurityWithoutKeyIntegrationTest` (nuevo, un solo método, con la propiedad vacía).
     - No se toca código de producción.
@@ -163,7 +170,11 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
   - Validación:
     - `./mvnw test -Dtest=SecurityWithoutKeyIntegrationTest`: el servicio arranca; el log del arranque tiene el warning de la clave, sin contenido; un token firmado con el par de test recibe `401` en `/api/professionals/15`; C04 responde como siempre.
     - Prueba en negativo: con la propiedad apuntando a la clave de test, el mismo token pasa y el warning no aparece.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 4).
+    - Creado `config/SecurityWithoutKeyIntegrationTest`. **Ajuste al hacerla:** no importa `TestcontainersConfiguration`, porque desde TASK-03 esa configuración registra la clave de test y sus propiedades dinámicas le ganan a las del test. Usa su propia base de PostgreSQL 18, como `ProfessionalCategoriesDatabaseDownIntegrationTest`, y pone `catalogo.jwt.public-key-location=` explícita, así tampoco la llena una variable de entorno de la máquina.
+    - `./mvnw test -Dtest=SecurityWithoutKeyIntegrationTest`: 1 caso, sin fallos. El servicio arrancó; el log del arranque tiene `WARN … JwtDecoderConfig : The JWT public key is not configured (catalogo.jwt.public-key-location): every request to a protected route will be rejected`, sin `BEGIN`; un token firmado con el par de test recibió `401` `problem+json` en `/api/professionals/15`; C04 respondió `200` con su categoría.
+    - Prueba en negativo: con la propiedad apuntando a la clave de test (una línea temporal en `@DynamicPropertySource`), el mismo token pasó la seguridad (`404`) y el log no tuvo ningún warning de la clave. Restaurado el test: `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 728 casos en 81 clases, 0 fallos ni errores, 156 s (708, más los 19 de TASK-05 y el de esta tarea).
 
 ## Etapa 5 · Regresión y prueba con turnos
 
