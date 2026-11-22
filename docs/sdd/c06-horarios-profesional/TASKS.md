@@ -1,6 +1,6 @@
 # TASKS: C06 — Consultar horarios semanales vigentes de un profesional
 
-SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas pendientes de aprobación. La implementación sigue la autorización del usuario, tanda por tanda.
+SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`, por `testcase` (Surefire suma mal las `@Nested`); al cerrar la validación del JWT eran 728 casos en 81 clases.
 
@@ -12,7 +12,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
 
 ## Etapa 1 · El caso de uso y sus lecturas
 
-- [ ] **TASK-01 · El orden compartido de los horarios**
+- [x] **TASK-01 · El orden compartido de los horarios**
   - Alcance:
     - `catalog/domain/model/WeeklySchedule`: suma `BY_DAY_START_AND_ID`, un `Comparator` público y constante por día de la semana, hora de inicio e `id` (P3).
     - `catalog/application/usecases/SearchProfessionalsUseCaseImpl`: reemplaza su `SCHEDULE_ORDER` privado por el nuevo. Sin cambio de comportamiento.
@@ -23,9 +23,13 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - Línea base antes de tocar nada: `./mvnw -q clean test`, conteo en los XML.
     - `./mvnw test -Dtest='SearchProfessionalsUseCaseImplTest,ProfessionalsIntegrationTest,CatalogPersistenceMappersTest'` en verde, sin cambios en los tests (los de los mappers de persistencia, para ver que el campo estático no cambia lo que mapean).
     - Prueba en negativo: el comparador sin el día; falla `eachProfessionalOfThePageComesWithItsSchedulesByDayStartAndId`. Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 1, autorizada ese día; los documentos de C06 ya estaban en el commit `0f2f423`).
+    - Modificados `WeeklySchedule` (suma `BY_DAY_START_AND_ID`) y `SearchProfessionalsUseCaseImpl` (usa el comparador del modelo; se quitaron su `SCHEDULE_ORDER` y el import de `Comparator`).
+    - Línea base, antes de tocar nada: `./mvnw -q clean test`, 728 casos en 81 clases, 0 fallos ni errores, 151 s.
+    - `./mvnw test -Dtest='SearchProfessionalsUseCaseImplTest,ProfessionalsIntegrationTest,CatalogPersistenceMappersTest'`: 6, 19 y 5 casos, 0 fallos ni errores, sin cambiar ningún test.
+    - Prueba en negativo: el comparador sin el día (solo inicio e `id`); falló únicamente `eachProfessionalOfThePageComesWithItsSchedulesByDayStartAndId` (1 de 6). Restaurado `WeeklySchedule`: `sha256sum -c` coincide.
 
-- [ ] **TASK-02 · Leer un profesional por id**
+- [x] **TASK-02 · Leer un profesional por id**
   - Alcance:
     - `catalog/domain/ports/out/ProfessionalRepository`: suma `Optional<Professional> findById(Long id)` (P2).
     - `catalog/infrastructure/persistence/adapter/JpaProfessionalRepositoryAdapter`: lo implementa con `findById(id).map(professionalMapper::toDomainModel)`.
@@ -35,9 +39,14 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
   - Validación:
     - `./mvnw test -Dtest=CatalogRepositoryAdaptersTest`: un profesional que existe vuelve con todos sus datos y su categoría completa; uno que no existe da vacío; los casos que ya tenía la clase siguen en verde.
     - Prueba en negativo: el adaptador devolviendo siempre vacío; falla el caso del que existe. Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 1).
+    - Modificados `ProfessionalRepository` (suma `findById`), `JpaProfessionalRepositoryAdapter` (lo implementa con `findById(id).map(professionalMapper::toDomainModel)`) y `CatalogRepositoryAdaptersTest`. Ningún test implementa el puerto a mano (buscado en `src`).
+    - `./mvnw test -Dtest=CatalogRepositoryAdaptersTest`: 11 casos (los 9 que tenía y 2 nuevos), 0 fallos ni errores:
+      - `findingOneProfessionalByIdReturnsEveryFieldWithItsWholeCategory`: con dos profesionales de categorías distintas, el 15 vuelve igual al guardado, con su categoría completa (comparación recursiva);
+      - `findingOneProfessionalThatIsNotInTheCopyReturnsEmpty`: `999`, `0` y `-1` dan vacío.
+    - Prueba en negativo: `findById` devolviendo siempre vacío; falló únicamente el caso del que existe (1 de 11). Restaurado el adaptador: `sha256sum -c` coincide.
 
-- [ ] **TASK-03 · El caso de uso de C06 y el "no encontrado"**
+- [x] **TASK-03 · El caso de uso de C06 y el "no encontrado"**
   - Alcance:
     - `catalog/domain/ports/in/GetProfessionalUseCase` (nuevo): `Optional<ProfessionalWithSchedules> getProfessional(Long professionalId)`.
     - `catalog/application/usecases/GetProfessionalUseCaseImpl` (nuevo): `@Transactional(readOnly = true, isolation = REPEATABLE_READ)` (P5); sin versión local lanza `CatalogNotInitializedException` sin leer al profesional; si no existe, devuelve vacío sin leer horarios; si existe, lee sus horarios con `findAllByProfessionalIds(List.of(id))` y los ordena con `WeeklySchedule.BY_DAY_START_AND_ID` (P2, P3).
@@ -55,7 +64,17 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
       - uno sin horarios: vuelve con la lista vacía.
     - La suite completa sigue en verde.
     - Pruebas en negativo, por separado: sin ordenar los horarios (falla el del orden); sin revisar el estado (falla el de sin versión local). Restaurar y comprobar el hash.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 1).
+    - Creados `GetProfessionalUseCase`, `GetProfessionalUseCaseImpl`, `ProfessionalNotFoundException` (mensaje "Could not find professional with id: {id}", como el de la skill) y `GetProfessionalUseCaseImplTest`. Modificado `ProfessionalService` (suma `getProfessional` con `orElseThrow`). Nadie construye el service a mano (buscado), así que el constructor nuevo no rompe nada.
+    - `./mvnw test -Dtest='GetProfessionalUseCaseImplTest,SearchProfessionalsUseCaseImplTest'`: 4 y 6 casos, 0 fallos ni errores:
+      - sin versión local: `CatalogNotInitializedException`, sin ninguna llamada a los puertos del profesional ni de los horarios;
+      - el 999 que no existe: vacío, sin llamar al de horarios;
+      - el 15, con horarios cargados como 3 (viernes 10:00), 4 (domingo 9:00, deshabilitado), 2 (lunes 14:00), 5 y 1 (lunes 8:00): vuelve el mismo profesional con los horarios 1, 5, 2, 3 y 4, también el deshabilitado; los horarios se pidieron con `List.of(15L)` (Mockito en modo estricto rechaza otra llamada);
+      - un profesional sin horarios: la lista vacía.
+    - Prueba en negativo 1: sin el `.sorted`; falló únicamente el del orden (1 de 4).
+    - Prueba en negativo 2: sin revisar el estado; falló el de sin versión local, y los otros 3 dieron error porque Mockito en modo estricto avisa que el estado preparado ya no se usa. Restaurado el caso de uso las dos veces: `sha256sum -c` coincide.
+    - La suite completa: `./mvnw -q clean test`, 734 casos en 82 clases (728 + 2 del adaptador + 4 del caso de uso), 0 fallos ni errores, 152 s.
+    - Los cuatro primeros chequeos de la skill (§12): sin salida. El quinto queda para el cierre.
 
 ## Etapa 2 · La entrada web
 
