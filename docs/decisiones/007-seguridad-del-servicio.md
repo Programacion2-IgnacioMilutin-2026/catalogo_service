@@ -1,7 +1,7 @@
 # 007 — Seguridad del servicio: la validación del JWT, los rechazos, CORS y CSRF
 
 - **Fecha:** 2026-11-22
-- **Funcionalidad:** Validación del JWT en los endpoints protegidos (`docs/sdd/validacion-jwt/`: D1 a D7 de la SPEC y P1 a P8 del PLAN)
+- **Funcionalidad:** Validación del JWT en los endpoints protegidos (`docs/sdd/validacion-jwt/`: D1 a D7 de la SPEC y P1 a P8 del PLAN). Actualizada en C06 (`docs/sdd/c06-horarios-profesional/`, D4 y S3 de su SPEC), el 2026-11-22: la trazabilidad y dos limitaciones
 - **Estado:** aceptada
 
 ## Situación
@@ -41,7 +41,7 @@ Entre los servicios viaja el JWT del usuario, no uno técnico (contrato común �
 
 - Firmado con `RS256` con la clave pública de turnos. Uno `HS256`, sin firma o firmado con otra clave responde `401`.
 - `exp` obligatorio y sin tolerancia de reloj (D2). Un token sin `exp` valdría para siempre, y la tolerancia que trae Spring (60 s) se aparta de "`exp` no vencido" (contrato común §1.4).
-- `sub` obligatorio, solo dígitos del 0 al 9 y dentro del rango de un `Long`, el tipo del `id` en turnos (D1). Sin `sub` válido no hay identidad, y así el `sub` se puede escribir en un log tal como llega (lo hará C06).
+- `sub` obligatorio, solo dígitos del 0 al 9 y dentro del rango de un `Long`, el tipo del `id` en turnos (D1). Sin `sub` válido no hay identidad, y así el `sub` se puede escribir en un log tal como llega (lo hace C06: ver "La trazabilidad" en las limitaciones).
 - `typ` como lo trae Spring: ausente o `JWT`. Los tokens de turnos traen `alg` y `kid`, sin `typ` (comprobado con un token real, TASK-08).
 - No se leen `iat` ni `auth`.
 - Sin estado: no consulta la base ni guarda tokens. Un token vale hasta su `exp`, también después de reiniciar, mientras no cambie el par de claves.
@@ -71,7 +71,7 @@ Queda como viene (D6). En seguridad da lo mismo que desactivarlo: catálogo no t
 
 ### 8. Dónde vive
 
-Todo en `catalogo.config` (P1), dentro de la excepción autorizada en X01 para la configuración transversal. En turnos la validación vive en el slice `user`, dueño de las claves y los roles. En catálogo ningún slice es dueño de la identidad, y las rutas protegidas son de dos slices (C06 en `catalog`, C07 en `synchronization`). Ningún slice importa la seguridad, y la seguridad no importa ningún slice.
+Todo en `catalogo.config` (P1), dentro de la excepción autorizada en X01 para la configuración transversal. En turnos la validación vive en el slice `user`, dueño de las claves y los roles. En catálogo ningún slice es dueño de la identidad, y las rutas protegidas son de dos slices (C06 en `catalog`, C07 en `synchronization`). Ningún slice importa la seguridad, y la seguridad no importa ningún slice. El controller de C06 lee el usuario con `java.security.Principal`, cuyo `getName()` es el `sub`, sin importar Spring Security.
 
 ## Limitaciones
 
@@ -80,7 +80,9 @@ Todo en `catalogo.config` (P1), dentro de la excepción autorizada en X01 para l
 - **La ventana del vencimiento:** un token que vence entre que turnos lo valida y catálogo lo valida (milisegundos) hace fallar esa consulta de turnos, que la trata como error interno (T03 4.1); al reintentar, turnos responde `401` y la app pide iniciar sesión. Con relojes distintos en dos máquinas la ventana crece; en el despliegue previsto, los dos servicios comparten la máquina.
 - **Sin clave, C06 responde `401` a todo**, y turnos lo ve como un error interno. La pista es el warning del arranque de catálogo.
 - **El cambio de clave es manual:** se reemplaza el par en turnos y se reinician los dos servicios; los tokens emitidos con la clave anterior dejan de valer.
-- **La trazabilidad queda a medias:** el contrato común §1.5 pide el mismo `sub` en los logs de los dos servicios. Catálogo lo va a escribir en C06, pero turnos no lo escribe en los suyos. Turnos está terminado y no se cambió.
+- **La trazabilidad queda a medias:** el contrato común §1.5 pide el mismo `sub` en los logs de los dos servicios. Catálogo lo escribe en C06: una línea `INFO` por cada consulta que pasó la seguridad, con el `sub`, el id y el resultado (`Professional 15 requested by user 42: found with 2 weekly schedules`), o, si el id es inválido, la del manejador de errores, sin el valor recibido (D4 de C06; comprobado con un token real de turnos en TASK-09 de C06). Los rechazos de la seguridad no dejan línea. Turnos no escribe el `sub` en los suyos; está terminado y no se cambió.
+- **Una URL con caracteres que el servicio no acepta** (por ejemplo, un salto de línea o un `;` codificados) **termina en `401`**, con token o sin él y en cualquier ruta, también en C04 y C05: la seguridad la rechaza y pide un error `400`, el servidor lo reenvía a la página interna `/error`, que la seguridad también protege, y ese reenvío termina en el `401` del punto 4, con `instance` `/error`. Una barra codificada la rechaza antes Tomcat, con su `400` en HTML. No se exponen datos y ningún cliente manda esas URL, pero el mensaje ("A valid bearer token is required") confunde ante una URL mal formada (S3 de C06, comprobado con el servidor real; antes se había visto solo con `@WebMvcTest`, que no hace ese reenvío).
+- **C06 no puede hacerse pública tal como está:** su controller necesita el usuario para la línea del log, y en una ruta pública no hay usuario, así que respondería `500` (lo mostró la prueba en negativo de TASK-08 de C06). Hacerla pública exigiría también cambiar esa línea.
 - **Sin roles hasta C07:** hoy un token válido pasa con cualquier `auth`. En la ruta de C07, que todavía no existe, recibe lo mismo que en una ruta inexistente.
 - **Sin TLS:** en el despliegue local todo va por HTTP, y el token viaja sin cifrar. En un despliegue real lo pondría un proxy delante de los servicios. Es una decisión de todo el sistema, que el usuario va a revisar al hacer la app KMP.
 

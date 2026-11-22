@@ -1,6 +1,6 @@
 # TASKS: C06 — Consultar horarios semanales vigentes de un profesional
 
-SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`; tanda 3, TASK-05: autorizada el 2026-11-22, después del commit `7a39118`; tanda 4, TASK-06 a TASK-08: autorizada el 2026-11-22, después del commit `9d8a091`).
+SPEC: `docs/sdd/c06-horarios-profesional/SPEC.md` (aprobada el 2026-11-22, con el ajuste S1 aprobado ese día). PLAN: `docs/sdd/c06-horarios-profesional/PLAN.md` (aprobado el 2026-11-22). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01 a TASK-03: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-04: autorizada el 2026-11-22, después de los commits `892d869`, `dfb2db3` y `acf235f`; tanda 3, TASK-05: autorizada el 2026-11-22, después del commit `7a39118`; tanda 4, TASK-06 a TASK-08: autorizada el 2026-11-22, después del commit `9d8a091`; tanda 5, TASK-09: autorizada el 2026-11-22, después del commit `4795517`; tanda 6, TASK-10: autorizada el 2026-11-22, sin commit de la tanda 5, que el usuario commitea junto con el cierre).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`, por `testcase` (Surefire suma mal las `@Nested`); al cerrar la validación del JWT eran 728 casos en 81 clases.
 
@@ -217,7 +217,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
 
 ## Etapa 5 · La prueba con turnos real
 
-- [ ] **TASK-09 · C06 con turnos real (la corre el usuario)**
+- [x] **TASK-09 · C06 con turnos real (la corre el usuario)**
   - Alcance: prueba manual con los dos servicios en local, sin la cátedra (P7). Se le pasa al usuario la lista exacta de pedidos y los comandos; los nombres de las variables de turnos se confirman en su `application.yaml` antes. El script vive en el scratchpad, guarda el token solo en memoria y deja un resultado sin él. Deja un usuario de prueba en la base de desarrollo de turnos. Al terminar, todo queda como estaba (aplicaciones detenidas, compose en su estado previo), y se borran el script, el resultado y el log.
   - Depende de: TASK-06, TASK-07 y TASK-08
   - Resuelve: CA-11 (la restricción de que turnos lee la respuesta sin cambios)
@@ -225,11 +225,29 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - a catálogo: C06 de un profesional con horarios, `200` e idéntico a su elemento en C05 (`jq`); un id inexistente, `404` `PROFESSIONAL_NOT_FOUND`; `abc`, `400` `VALIDATION_ERROR`; sin token, `401`;
     - a turnos: T03 en una fecha sin atención, `200 []`; T04 a una hora fuera de sus horarios, `400` `INVALID_SLOT`; T03 con el id inexistente, `404` `PROFESSIONAL_NOT_FOUND`; opcional, T03 de un profesional deshabilitado, `409` `PROFESSIONAL_DISABLED`;
     - el log de catálogo: una línea con el `sub` del usuario por cada C06 con token, y el token, 0 veces.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 5, autorizada ese día después del commit `4795517`). La corrió el usuario en su terminal, con un script de un solo uso que guardaba el token y la contraseña solo en variables y dejaba un resultado sin ellos; antes de leerlo se revisó que no tuviera nada con forma de JWT (0) y que la única mención de "password" fuera el nombre de una propiedad en un warning.
+    - Variables de turnos confirmadas en su `application.yaml`: `TURNOS_CATEDRA_BASE_URL`, `TURNOS_CATEDRA_USERNAME`, `TURNOS_CATEDRA_PASSWORD`, `TURNOS_CATEDRA_KAFKA_ENABLED`, `TURNOS_RESERVATION_SWEEP_ENABLED`, `TURNOS_RESERVATION_RECONCILIATION_ENABLED` y `TURNOS_CATALOG_BASE_URL`; turnos en el 8080 por defecto. Antes de empezar no había contenedores levantados.
+    - Catálogo con la base de desarrollo y el comando de TASK-08 de la validación del JWT (sin la cátedra, sin la verificación ni Kafka, con la pública de turnos), con el log en `target/manual-c06.log`. Turnos con su base de desarrollo, sin la cátedra, sin Kafka, sin el barrido ni la reconciliación, y `TURNOS_CATALOG_BASE_URL=http://localhost:8081`.
+    - Datos elegidos por el script desde C05 (`200`, 24 profesionales): el profesional 218, habilitado, que atiende martes y jueves; el 2026-11-23 (lunes) sin atención; el 2026-11-24 (martes) a las 00:00, fuera de sus horarios; el 1224, inexistente; el 214, deshabilitado.
+    - Turnos: `POST /api/register` del usuario `catalogo.c06.1795389142`, `201`; `POST /api/authenticate`, token recibido, con `sub` 7.
+    - A catálogo, con el token real de turnos:
+      - C06 del 218: `200`, igual a su elemento de C05 (`jq -S`), con 2 horarios;
+      - C06 del 1224: `404` `PROFESSIONAL_NOT_FOUND`;
+      - C06 de `abc`: `400` `VALIDATION_ERROR`, `[{"field":"professionalId","message":"must be a whole number"}]`;
+      - C06 del 218 sin token: `401`, sin su apellido en el cuerpo.
+    - Por turnos, sin llegar a la cátedra:
+      - T03 del 218 el 2026-11-23: `200`, `slots: []`, `emptyReason` `PROFESSIONAL_NOT_WORKING`: turnos leyó los horarios que le dio C06;
+      - T04 del 218 el 2026-11-24 a las 00:00: `400` `INVALID_SLOT`;
+      - T03 del 1224: `404` `PROFESSIONAL_NOT_FOUND`;
+      - T03 del 214 (deshabilitado): `409` `PROFESSIONAL_DISABLED`; catálogo lo devolvió con su `enabled` y turnos decidió.
+    - **Cumple la restricción de la SPEC (CA-11): el cliente de C06 de turnos lee la respuesta sin cambios en turnos.**
+    - El log de catálogo: 7 líneas nuevas con `requested by user 7`, las 7 esperadas (3 directas y 4 por turnos): `found with 2 weekly schedules` (3, la directa, T03 y T04), `not found` (2), la del `400` (`Invalid parameters for GET /api/professionals/{professionalId} requested by user 7: professionalId`) y `Professional 214 … found with 1 weekly schedules`. El token aparece 0 veces. Los únicos `WARN` y `ERROR` son los esperables por arrancar sin la cátedra (`Technical login disabled` y `Technical login configuration error`). El log de turnos no tiene el `sub`: es la limitación ya documentada.
+    - Al terminar: los dos servicios detenidos y las dos bases bajadas por el usuario (`docker compose down`, sin `-v`); 0 contenedores y los puertos 8080, 8081, 5432 y 5433 libres, como antes. Se borraron el script, el resultado, los cuerpos de las respuestas y `target/manual-c06.log`. Queda el usuario de prueba en la base de desarrollo de turnos.
+    - Detalle sin efecto: la línea dice "1 weekly schedules", en plural; no se corrige.
 
 ## Etapa 6 · Cierre
 
-- [ ] **TASK-10 · Documentos y verificación final**
+- [x] **TASK-10 · Documentos y verificación final**
   - Alcance:
     - `CLAUDE.md`: la fila de `catalog`; las excepciones de C06 (P8.1); "Para un endpoint protegido nuevo", corrigiendo lo de `CorsSecurityTest`; en "Cómo responde un error", el `400` de un parámetro validado y el aviso de no poner `@Validated` en un controller; lo comprobado con turnos real; los tests y su conteo; `c06-horarios-profesional` en "Documentación del servicio".
     - `docs/decisiones/005`: el punto 4 suma el `400` de un parámetro validado y su línea del log.
@@ -241,4 +259,23 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01, TASK-02 y
     - `./mvnw clean verify`: la suite completa en verde, con el conteo por `testcase`, y el reporte de JaCoCo.
     - Los cinco chequeos de la skill (§12), con `catalogo` como paquete base: los cuatro primeros sin salida, y el quinto solo con las dependencias ya autorizadas.
     - Cada criterio, de CA-01 a CA-11, con su evidencia registrada en este documento; ninguna afirmación de los documentos sin evidencia.
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 6; el usuario commitea las tandas 5 y 6 juntas).
+    - `CLAUDE.md`: C06 en la fila de `catalog` y el `400` nuevo en la de `config`; las excepciones de C06 (P8.1) y lo que no es excepción; en "Seguridad", que C06 no puede hacerse pública tal como está, "Para un endpoint protegido nuevo" para C07 con la corrección de `CorsSecurityTest`, cómo lee el controller el `sub`, y las URL que terminan en `401` (S3); en "Cómo responde un error", el `400` de un parámetro validado, el aviso de no poner `@Validated` y el `instance` (S2), y el reenvío a `/error`, ahora comprobado; la sección nueva "La consulta de un profesional (desde C06)"; lo comprobado con turnos real (TASK-09); los tests de C06 y la nota de que `@WebMvcTest` no reenvía a `/error`; el conteo de la suite; C06 en "Comandos" y en "Documentación del servicio", y las descripciones de la `005` y la `007`.
+    - `docs/decisiones/005`: el encabezado, el punto 4 (el `400` de un parámetro validado y su línea), el recorrido de un error y el párrafo de cómo creció. **Además de lo acordado en P8.2**, una línea en "Qué no hace": no ve las URL que rechaza la seguridad, que terminan en el `401` (S3).
+    - `docs/decisiones/006`: la tabla suma `ProfessionalNotFoundException`, y la fila de `CatalogNotInitializedException` nombra C04, C05 y C06.
+    - `docs/decisiones/007`: el encabezado; en §3, que C06 escribe el `sub`; en §8, el `Principal`; y en las limitaciones, la trazabilidad con la línea de C06, las URL que terminan en `401` (S3) y que C06 no puede hacerse pública tal como está.
+    - `./mvnw clean verify`: 783 casos en 82 clases, 0 fallos, errores ni saltados, 171 s. JaCoCo (`target/site/jacoco/jacoco.xml`): 97,5 % de líneas (1749 de 1794) y 94,0 % de ramas (597 de 635).
+    - Los cinco chequeos de la skill, con `catalogo` como paquete base: los cuatro primeros sin salida; el quinto, solo las dependencias ya autorizadas de `synchronization` hacia `catalog` y `catedra` (la fachada de C01 y el gateway de C02). `catalog` y `config` no importan otros slices.
+    - Revisión de los criterios contra lo observado:
+      - CA-01: TASK-01 y TASK-03 (el orden), TASK-02 (`findById` con su categoría), TASK-04 (el JSON exacto y `?x=1`), TASK-06 (igual al elemento de C05, horarios 701 y 702, sin pedidos a la cátedra) y TASK-09 (igual con datos reales).
+      - CA-02: TASK-06 (602 y 603).
+      - CA-03: TASK-03 y TASK-06 (604).
+      - CA-04: TASK-04 y TASK-06 (`401` sin datos; `200` con cualquier `auth`), TASK-08 (el `401` sin el nombre del 15) y TASK-09 (`401` sin token).
+      - CA-05: TASK-04 (14 ids inválidos con la forma de D2, `015` como 15, `%0A15` con `MockMvc`), TASK-06 (`abc` antes de inicializar; `%0A15` con el servidor real, el `401` de S3; `/api/professionals/`, `404` sin `code`) y TASK-09 (`abc` con datos reales).
+      - CA-06: TASK-03, TASK-04 y TASK-06 (`503`, sin pedidos a la cátedra).
+      - CA-07: TASK-02, TASK-03, TASK-04, TASK-06 (`999`, `0` y `-1`) y TASK-09.
+      - CA-08: TASK-04 (la falla del service, con su línea antes del error) y TASK-06 (dos tablas renombradas).
+      - CA-09: TASK-07 (la versión anterior entera; sin `REPEATABLE READ`, la mezcla).
+      - CA-10: TASK-05, TASK-06 y TASK-09 (7 líneas con el `sub`, el token 0 veces).
+      - CA-11: TASK-09.
+    - Lo que los documentos dicen sin haberlo ejecutado queda marcado así: que `@Validated` en el controller llevaría a `500`, y los valores por defecto del pool (30 s) y de Tomcat (200 hilos), que no se cambiaron ni se midieron.
