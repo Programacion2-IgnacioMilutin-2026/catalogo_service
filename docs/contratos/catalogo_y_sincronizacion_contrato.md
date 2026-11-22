@@ -48,12 +48,12 @@ Todos los parámetros son opcionales y se combinan.
 | `categoryId` | número | Profesionales de esa categoría. Un id inexistente devuelve página vacía |
 | `name` | texto | Coincidencia parcial, sin distinguir mayúsculas ni tildes, con el nombre, el apellido o ambos |
 | `enabled` | booleano | Estado del profesional |
-| `dayOfWeek` | `MONDAY` a `SUNDAY` | Repetible: `dayOfWeek=MONDAY&dayOfWeek=FRIDAY` |
+| `dayOfWeek` | `MONDAY` a `SUNDAY`, sin distinguir mayúsculas | Repetible: `dayOfWeek=MONDAY&dayOfWeek=FRIDAY`, o separados por coma: `dayOfWeek=MONDAY,FRIDAY` |
 | `from` | hora (`HH:mm` o `HH:mm:ss`) | Inicio de la franja. Si viene `to`, debe ser anterior |
 | `to` | hora (`HH:mm` o `HH:mm:ss`) | Fin de la franja |
 | `page`, `size` | número | Ver `contratos_comunes.md`, sección 3.1 |
 
-Disponibilidad: un profesional cumple si tiene al menos un horario semanal habilitado en alguno de los `dayOfWeek` indicados que se solapa con la franja. Si falta `dayOfWeek` o falta la franja, ese criterio no se aplica. Sin filtros se devuelven todos los profesionales, habilitados o no, y también los de una categoría deshabilitada.
+Disponibilidad: un profesional cumple si tiene al menos un horario semanal habilitado en alguno de los `dayOfWeek` indicados que se solapa con la franja. Cada parte es opcional: sin `dayOfWeek` cuenta cualquier día y sin franja, cualquier hora; con solo `from`, la franja llega hasta el final del día, y con solo `to`, empieza al comienzo del día. Sin días ni franja no se filtra por disponibilidad. Un horario que termina justo cuando empieza la franja, o que empieza justo cuando ella termina, no se solapa con ella. Un horario que no termina después de empezar no cuenta. Sin filtros se devuelven todos los profesionales, habilitados o no, y también los de una categoría deshabilitada.
 
 Orden: `lastName`, `firstName`, `id`.
 

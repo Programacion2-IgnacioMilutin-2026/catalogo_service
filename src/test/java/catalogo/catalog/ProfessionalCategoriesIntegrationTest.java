@@ -131,8 +131,8 @@ class ProfessionalCategoriesIntegrationTest {
 
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource({
-            "GET, /api/professionals",
             "GET, /api/professionals/15",
+            "POST, /api/professionals",
             "GET, /api/synchronization/status",
             "POST, /api/professional-categories"})
     void anyOtherRouteWithoutAuthenticationIsRejectedWithoutData(HttpMethod method, String path) {

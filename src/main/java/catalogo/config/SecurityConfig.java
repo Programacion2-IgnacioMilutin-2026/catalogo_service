@@ -16,7 +16,8 @@ public class SecurityConfig {
 
     // Los endpoints que no estan esta lista exige autenticacion
     private static final RequestMatcher PUBLIC_ENDPOINTS = new OrRequestMatcher(
-            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/professional-categories"));
+            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/professional-categories"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/professionals"));
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
