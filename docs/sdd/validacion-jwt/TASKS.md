@@ -1,6 +1,6 @@
 # TASKS: Validación del JWT en los endpoints protegidos
 
-SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`).
+SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`).
 
 Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C05 eran 630 tests en 76 clases.
 
@@ -110,7 +110,7 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
 
 ## Etapa 3 · CORS
 
-- [ ] **TASK-04 · Los navegadores permitidos**
+- [x] **TASK-04 · Los navegadores permitidos**
   - Alcance:
     - `config/CorsProperties` (`record`, `catalogo.cors.allowed-origins`, lista vacía por defecto).
     - `config/SecurityConfig`: la configuración CORS, registrada siempre: los orígenes de `CorsProperties`, `GET`, `Authorization`, sin cookies ni encabezados expuestos (P5).
@@ -126,7 +126,16 @@ Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-
       - sin `Origin`, las mismas respuestas en las dos configuraciones.
     - Los tests web de TASK-02 siguen en verde.
     - Prueba en negativo: la configuración CORS sin registrar con la lista vacía (la consulta previa deja de dar el `403` de CORS).
-  - Resultado: pendiente
+  - Resultado: 2026-11-22 (tanda 3, autorizada ese día).
+    - Creados `config/CorsProperties` (`record` con `@DefaultValue`: sin la propiedad, lista vacía) y `config/CorsSecurityTest`. Modificados `config/SecurityConfig` (la configuración CORS, registrada siempre), `application.yaml`, `.env.example` (comentada, con el aviso de no usar `*`) y `TestSecurityConfiguration` (habilita `CorsProperties`).
+    - `./mvnw test -Dtest='CorsSecurityTest*,ProtectedRoutesSecurityTest,ProfessionalCategoryControllerTest,ProfessionalControllerTest'`: los 13 casos de `CorsSecurityTest`, sin fallos, y los de TASK-02 siguen en verde (34, 10 y 37).
+      - Sin orígenes: la consulta previa con `Origin` a C04, C05 y `/api/professionals/15`, `403` sin `Access-Control-Allow-Origin`; un `GET` con `Origin` a las mismas tres, `403` sin el encabezado y sin llamar a los services.
+      - Con `http://localhost:3000`: la consulta previa sin token a `/api/professionals/15`, `200` con `Access-Control-Allow-Origin` igual al origen, `Authorization` en los encabezados permitidos y sin `Access-Control-Allow-Credentials`; el `GET` sin token, `401` con el encabezado; el `GET` a C04, `200` con el encabezado; la consulta previa que pide `POST` y la de `http://other.example`, `403`.
+      - Sin `Origin`, en los dos grupos: C04 responde `200` y `/api/professionals/15`, `401`, sin encabezados CORS.
+      - No se revisa el cuerpo del `403` de CORS: es el rechazo estándar de Spring, como dice RF-11.
+    - **Hallazgo al contar:** el reporte XML de `CorsSecurityTest` dice `tests="12"` con 13 casos (`testcase`) adentro, todos sin `failure` ni `error`. Surefire cuenta mal las clases `@Nested` (turnos ya lo había visto en su resumen `.txt`). Desde aquí, la suite se cuenta por los casos.
+    - Prueba en negativo: CORS desactivado (`cors.disable()`), y fallaron 11 de 13. Pasaron solo los dos de "sin `Origin`". Sin configuración, la consulta previa terminó en `401` (llega sin token), y un `GET` con `Origin` a C04 o C05 respondió `200`: el rechazo dependía de otra regla. Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 708 casos en 80 clases, 0 fallos ni errores, 150 s (695 más los 13 de CORS; el atributo `tests` suma 707 por lo de `@Nested`).
 
 ## Etapa 4 · La aplicación completa
 

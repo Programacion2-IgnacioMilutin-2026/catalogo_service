@@ -10,7 +10,7 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 // La seguridad real con la clave de los tokens de prueba para tests.
 @TestConfiguration(proxyBeanMethods = false)
 @Import({SecurityConfig.class, JwtDecoderConfig.class, SecurityProblemHandler.class, ClockConfig.class})
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, CorsProperties.class})
 public class TestSecurityConfiguration {
 
     @Bean

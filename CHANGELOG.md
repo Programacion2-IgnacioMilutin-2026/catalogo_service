@@ -130,3 +130,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Propiedades, decodificador y añadido de clave publica.
 - Validador del jwt de rutas que no son publicas.
 - Tests de la validacion del jwt. 
+- Configuracion del CORS.
