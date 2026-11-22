@@ -132,4 +132,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests de la validacion del jwt. 
 - Configuracion del CORS.
 - Tests de integracion para la validacion del jwt.
-- Documentacion de SDD del caso de uso C=6-HorariosProfesional.
+- Documentacion de SDD del caso de uso C06-HorariosProfesional.
+- Ordenar los horarios semanales de Lunes a Domingo cronologicamente.
