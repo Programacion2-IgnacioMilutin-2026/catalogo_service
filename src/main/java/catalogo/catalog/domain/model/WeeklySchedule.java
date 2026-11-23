@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.Comparator;
 
 // Horario semanal de un profesional.
 @Getter
@@ -16,6 +17,12 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WeeklySchedule {
+
+    public static final Comparator<WeeklySchedule> BY_DAY_START_AND_ID = Comparator
+            .comparing(WeeklySchedule::getDayOfWeek)
+            .thenComparing(WeeklySchedule::getStartTime)
+            .thenComparing(WeeklySchedule::getId);
+
     private Long id;
     private DayOfWeek dayOfWeek;
     private LocalTime startTime;

@@ -59,7 +59,8 @@ Tener dos formas para lo mismo necesita un criterio. Sin él, el código queda i
 | `CatalogUpdateReading` | `catedra` (Kafka) | Sellado | Un aviso válido o inválido con su motivo; uno inválido se descarta sin cortar el consumo (C02) |
 | `ApplyCatalogVersionResult` | `catalog` | Sellado | Cruza a `synchronization`, que no puede importar una excepción de `catalog` (C03) |
 | `FullSyncResult`, `VerificationResult`, `CatchUpResult`, `IncrementalSyncResult` | `synchronization` | Sellado | Procesos de fondo: quien llama decide qué registrar y si sigue (C01 a C03) |
-| `CatalogNotInitializedException` | `catalog` | Excepción del slice | Solo la lee su controller, para responder `503` (C04) |
+| `CatalogNotInitializedException` | `catalog` | Excepción del slice | Solo la lee su controller, para responder `503` (C04, C05 y C06) |
+| `ProfessionalNotFoundException` | `catalog` | Excepción del slice | La lanza el service cuando el caso de uso devuelve vacío, como pide la skill para buscar por id, y solo la lee su controller, para responder `404` (C06, P2 de su PLAN) |
 | Una falla de la base en C04 | — | Excepción no prevista | Excepcional: la atrapa el manejador global (decisión 005) |
 
 ### Excepción a la skill

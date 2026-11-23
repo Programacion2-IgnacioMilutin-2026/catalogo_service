@@ -123,3 +123,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Caso de uso y service para fitlrar profesionales. 
 - Requests, responses, mapper y controller web para la busqueda de un profesional.
 - Tests de integracion del caso de uso C05-BuscarProfesionales.
+
+## 2026-11-22
+### Added 
+- Documentacion de SDD de la validacion del jwt.
+- Propiedades, decodificador y añadido de clave publica.
+- Validador del jwt de rutas que no son publicas.
+- Tests de la validacion del jwt. 
+- Configuracion del CORS.
+- Tests de integracion para la validacion del jwt.
+- Documentacion de SDD del caso de uso C06-HorariosProfesional.
+- Ordenar los horarios semanales de Lunes a Domingo cronologicamente.
+- Adapter y puerto para buscar un prfoesional por el id. 
+- Caso de uso para buscar un profesional con sus horarios.
+- Endpoint para buscar un profesional con sus horarios. 
+- Logs para identificar al usario que busca los horarios del profesional. 
+- Tests de integracion del caso de uso C06-HorariosProfesional.

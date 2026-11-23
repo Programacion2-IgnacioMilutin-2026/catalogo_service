@@ -10,11 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,8 +27,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.client.RestTestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
@@ -35,6 +41,7 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -48,6 +55,10 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 class ProfessionalsIntegrationTest {
 
     private static final String PROFESSIONALS = "/api/professionals";
+    private static final String TOKEN = TestTokens.valid();
+    private static final String BEARER = "Bearer " + TOKEN;
+    private static final String REQUEST_LINE = "requested by user";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final Duration WITHOUT_WAITING = Duration.ofSeconds(5);
     private static final FakeCatedraServer CATEDRA = FakeCatedraServer.start();
     private static final String FOUR_PROFESSIONALS_JSON = """
@@ -90,6 +101,9 @@ class ProfessionalsIntegrationTest {
 
     @Autowired
     private DataSource dataSource;
+
+    @LocalServerPort
+    private int port;
 
     private CatalogTables tables;
 
@@ -227,7 +241,7 @@ class ProfessionalsIntegrationTest {
         fourProfessionals();
         tables.initializeAt(57);
 
-        assertInternalErrorWhileTheTableIsRenamed("catalog_sync_state", output);
+        assertInternalErrorWhileTheTableIsRenamed("catalog_sync_state", this::search, output);
     }
 
     @Test
@@ -235,7 +249,7 @@ class ProfessionalsIntegrationTest {
         fourProfessionals();
         tables.initializeAt(57);
 
-        assertInternalErrorWhileTheTableIsRenamed("professionals", output);
+        assertInternalErrorWhileTheTableIsRenamed("professionals", this::search, output);
     }
 
     @Test
@@ -264,6 +278,185 @@ class ProfessionalsIntegrationTest {
                 .jsonPath("$.items[*].id").isEqualTo(List.of(605, 602, 601, 603, 604))
                 .jsonPath("$.totalItems").isEqualTo(5)
                 .jsonPath("$.items[2].weeklySchedules[0].startTime").isEqualTo("07:00:00");
+    }
+
+    @Test
+    void oneProfessionalIsTheSameObjectAsItsItemInTheSearchWithoutAskingTheCatedra(CapturedOutput output) {
+        fourProfessionals();
+        tables.initializeAt(57);
+        int requestsBefore = CATEDRA.receivedRequests().size();
+        JsonNode search = JSON.readTree(search().expectStatus().isOk()
+                .expectBody(String.class).returnResult().getResponseBody());
+
+        JsonNode professional = JSON.readTree(getProfessional("601").expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .expectBody(String.class).returnResult().getResponseBody());
+        JsonNode withUnknownParameter = JSON.readTree(getProfessional("601?x=1").expectStatus().isOk()
+                .expectBody(String.class).returnResult().getResponseBody());
+
+        assertThat(search.at("/items/1/id").asInt()).isEqualTo(601);
+        assertThat(professional).isEqualTo(search.at("/items/1")).isEqualTo(withUnknownParameter);
+        assertThat(List.of(professional.at("/weeklySchedules/0/id").asInt(), professional.at("/weeklySchedules/1/id").asInt()))
+                .containsExactly(701, 702);
+        assertThat(CATEDRA.receivedRequests()).hasSize(requestsBefore);
+        assertThat(output).contains("Professional 601 requested by user 42: found with 2 weekly schedules")
+                .doesNotContain(TOKEN);
+    }
+
+    @Test
+    void disabledProfessionalsAndCategoriesComeWithTheirState() {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        getProfessional("602").expectStatus().isOk().expectBody()
+                .jsonPath("$.enabled").isEqualTo(false)
+                .jsonPath("$.category.enabled").isEqualTo(true)
+                .jsonPath("$.weeklySchedules[0].enabled").isEqualTo(false);
+        getProfessional("603").expectStatus().isOk().expectBody()
+                .jsonPath("$.enabled").isEqualTo(true)
+                .jsonPath("$.category.enabled").isEqualTo(false);
+    }
+
+    @Test
+    void aProfessionalWithoutSchedulesComesWithAnEmptyList() {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        getProfessional("604").expectStatus().isOk().expectBody()
+                .jsonPath("$.id").isEqualTo(604)
+                .jsonPath("$.weeklySchedules").isEmpty();
+    }
+
+    @Test
+    void withoutAValidTokenOneProfessionalIsRejectedWithoutItsDataOrALine(CapturedOutput output) {
+        fourProfessionals();
+        tables.initializeAt(57);
+        String altered = TestTokens.altered();
+
+        String withoutToken = restTestClient.get().uri(PROFESSIONALS + "/601").exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody(String.class).returnResult().getResponseBody();
+        String withAlteredToken = restTestClient.get().uri(PROFESSIONALS + "/601")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + altered).exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody(String.class).returnResult().getResponseBody();
+
+        assertThat(withoutToken).doesNotContain("Valentina", "Kinesiología");
+        assertThat(withAlteredToken).doesNotContain("Valentina", "Kinesiología");
+        assertThat(output).doesNotContain(REQUEST_LINE).doesNotContain(altered);
+    }
+
+    @ParameterizedTest(name = "auth {0}")
+    @NullSource
+    @ValueSource(strings = {"", "ROLE_USER", "ROLE_ADMIN"})
+    void aValidTokenGetsOneProfessionalWhateverItsRoles(String auth) {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        restTestClient.get().uri(PROFESSIONALS + "/601")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestTokens.withAuth(auth)).exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.id").isEqualTo(601);
+    }
+
+    @Test
+    void anInvalidIdAnswers400BeforeLookingAtTheCopyAndIsLoggedWithoutItsValue(CapturedOutput output) {
+        fourProfessionals();
+
+        getProfessional("abc").expectStatus().isBadRequest()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("VALIDATION_ERROR")
+                .jsonPath("$.fieldErrors.length()").isEqualTo(1)
+                .jsonPath("$.fieldErrors[0].field").isEqualTo("professionalId")
+                .jsonPath("$.fieldErrors[0].message").isEqualTo("must be a whole number");
+
+        assertThat(output)
+                .contains("Invalid parameters for GET /api/professionals/{professionalId} requested by user 42: professionalId")
+                .doesNotContain(TOKEN);
+    }
+
+    @Test
+    void aUrlTheSecurityRejectsAndAMissingIdNeverReachOneProfessional(CapturedOutput output) {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        // La seguridad rechaza la URL con un error 400, el servidor lo reenvía a /error y ese reenvío termina en 401.
+        String rejected = restTestClient.get().uri(URI.create("http://localhost:" + port + PROFESSIONALS + "/%0A15"))
+                .header(HttpHeaders.AUTHORIZATION, BEARER).exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody(String.class).returnResult().getResponseBody();
+        restTestClient.get().uri(PROFESSIONALS + "/").header(HttpHeaders.AUTHORIZATION, BEARER).exchange()
+                .expectStatus().isNotFound()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.code").doesNotExist();
+
+        assertThat(JSON.readTree(rejected).at("/instance").asString()).isEqualTo("/error");
+        assertThat(rejected).doesNotContain("Valentina", "Kinesiología");
+        assertThat(output).doesNotContain(REQUEST_LINE);
+    }
+
+    @Test
+    void aCopyNotInitializedAnswers503ForOneProfessionalWithoutAskingTheCatedra(CapturedOutput output) {
+        int requestsBefore = CATEDRA.receivedRequests().size();
+
+        assertNotInitializedForOneProfessional();
+        fourProfessionals();
+        assertNotInitializedForOneProfessional();
+
+        assertThat(CATEDRA.receivedRequests()).hasSize(requestsBefore);
+        assertThat(output).contains("Professional 601 requested by user 42: catalog not initialized");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"999", "0", "-1"})
+    void aProfessionalThatIsNotInTheCopyAnswers404AndIsLogged(String id, CapturedOutput output) {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        getProfessional(id).expectStatus().isNotFound()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.code").isEqualTo("PROFESSIONAL_NOT_FOUND")
+                .jsonPath("$.firstName").doesNotExist();
+
+        assertThat(output).contains("Professional " + id + " requested by user 42: not found").doesNotContain(TOKEN);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"professionals", "weekly_schedules"})
+    void aFailureReadingOneProfessionalAnswers500AndLeavesTheLineBeforeTheError(String table, CapturedOutput output) {
+        fourProfessionals();
+        tables.initializeAt(57);
+
+        assertInternalErrorWhileTheTableIsRenamed(table, () -> getProfessional("601"), output);
+
+        String all = output.getAll();
+        assertThat(all.indexOf("Professional 601 requested by user 42: failed"))
+                .isNotNegative()
+                .isLessThan(all.indexOf("Unexpected error"));
+        assertThat(all).doesNotContain(TOKEN);
+    }
+
+    private RestTestClient.ResponseSpec search() {
+        return restTestClient.get().uri(PROFESSIONALS).exchange();
+    }
+
+    private RestTestClient.ResponseSpec getProfessional(String idAndQuery) {
+        return restTestClient.get().uri(PROFESSIONALS + "/" + idAndQuery)
+                .header(HttpHeaders.AUTHORIZATION, BEARER).exchange();
+    }
+
+    private void assertNotInitializedForOneProfessional() {
+        getProfessional("601").expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(503)
+                .jsonPath("$.code").isEqualTo("CATALOG_NOT_INITIALIZED");
     }
 
     // Valentina Ibáñez y Tomás Ferreyra en una categoría habilitada; Lucía Núñez y Mariana Paz, sin horarios, en una
@@ -312,10 +505,11 @@ class ProfessionalsIntegrationTest {
         assertThat(CATEDRA.receivedRequests()).hasSize(requestsBefore);
     }
 
-    private void assertInternalErrorWhileTheTableIsRenamed(String table, CapturedOutput output) {
+    private void assertInternalErrorWhileTheTableIsRenamed(String table, Supplier<RestTestClient.ResponseSpec> request,
+                                                           CapturedOutput output) {
         jdbcTemplate.execute("ALTER TABLE " + table + " RENAME TO " + table + "_hidden");
         try {
-            byte[] body = restTestClient.get().uri(PROFESSIONALS).exchange()
+            byte[] body = request.get()
                     .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                     .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
                     .expectBody()

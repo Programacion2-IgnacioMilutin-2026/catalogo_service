@@ -24,6 +24,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -61,6 +62,11 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
         return jpaProfessionalRepository.findAllById(ids).stream()
                 .map(professionalMapper::toDomainModel)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Professional> findById(Long id) {
+        return jpaProfessionalRepository.findById(id).map(professionalMapper::toDomainModel);
     }
 
     @Override

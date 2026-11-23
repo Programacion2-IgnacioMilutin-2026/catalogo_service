@@ -157,6 +157,28 @@ class CatalogRepositoryAdaptersTest {
     }
 
     @Test
+    void findingOneProfessionalByIdReturnsEveryFieldWithItsWholeCategory() {
+        ProfessionalCategory first = CatalogSamples.category(1);
+        ProfessionalCategory second = CatalogSamples.category(2);
+        Professional professional = CatalogSamples.professional(15, second);
+        categoryRepository.saveAll(List.of(first, second));
+        professionalRepository.saveAll(List.of(professional, CatalogSamples.professional(16, first)));
+
+        assertThat(professionalRepository.findById(15L)).get().usingRecursiveComparison().isEqualTo(professional);
+    }
+
+    @Test
+    void findingOneProfessionalThatIsNotInTheCopyReturnsEmpty() {
+        ProfessionalCategory category = CatalogSamples.category(1);
+        categoryRepository.saveAll(List.of(category));
+        professionalRepository.saveAll(List.of(CatalogSamples.professional(15, category)));
+
+        assertThat(professionalRepository.findById(999L)).isEmpty();
+        assertThat(professionalRepository.findById(0L)).isEmpty();
+        assertThat(professionalRepository.findById(-1L)).isEmpty();
+    }
+
+    @Test
     void allCategoriesComeInSpanishAlphabeticalOrderWithTiesById() {
         ProfessionalCategory pediatria = named(1, "pediatría", true);
         ProfessionalCategory nandu = named(2, "Ñandú", true);

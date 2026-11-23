@@ -5,7 +5,7 @@ import catalogo.catalog.application.exception.CatalogNotInitializedException;
 import catalogo.catalog.application.service.ProfessionalCategoryService;
 import catalogo.catalog.domain.model.ProfessionalCategory;
 import catalogo.catalog.infrastructure.web.mapper.ProfessionalCategoryDtoMapper;
-import catalogo.config.SecurityConfig;
+import catalogo.config.TestSecurityConfiguration;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // La entrada web del listado de categorías, con la seguridad y el manejador de errores reales.
 @ExtendWith(OutputCaptureExtension.class)
 @WebMvcTest(ProfessionalCategoryController.class)
-@Import({SecurityConfig.class, ProfessionalCategoryDtoMapper.class})
+@Import({TestSecurityConfiguration.class, ProfessionalCategoryDtoMapper.class})
 class ProfessionalCategoryControllerTest {
 
     private static final String CATEGORIES = "/api/professional-categories";

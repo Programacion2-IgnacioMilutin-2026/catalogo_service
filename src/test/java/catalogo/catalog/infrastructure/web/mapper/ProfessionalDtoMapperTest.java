@@ -139,9 +139,25 @@ class ProfessionalDtoMapperTest {
     }
 
     @Test
+    void oneProfessionalWithItsSchedulesIsTheSameAsEachItemOfAPage() {
+        Professional professional = CatalogSamples.professional(15, CatalogSamples.category(1));
+        ProfessionalWithSchedules item = ProfessionalWithSchedules.builder()
+                .professional(professional)
+                .weeklySchedules(List.of(CatalogSamples.weeklySchedule(21, professional)))
+                .build();
+        ProfessionalPage page = ProfessionalPage.builder().professionals(List.of(item)).totalItems(1).build();
+
+        ProfessionalResponse response = mapper.toResponse(item);
+
+        assertThat(response).hasNoNullFieldsOrProperties();
+        assertThat(response).usingRecursiveComparison().isEqualTo(mapper.toResponse(page, 0, 10).getItems().getFirst());
+    }
+
+    @Test
     void nullMapsToNull() {
         assertThat(mapper.toDomain(null)).isNull();
         assertThat(mapper.toResponse(null, 0, 10)).isNull();
+        assertThat(mapper.toResponse((ProfessionalWithSchedules) null)).isNull();
     }
 
     private static void assertThatHasNoFilters(ProfessionalSearchCriteria criteria) {

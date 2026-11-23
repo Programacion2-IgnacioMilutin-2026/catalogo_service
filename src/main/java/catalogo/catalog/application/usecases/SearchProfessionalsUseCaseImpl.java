@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,11 +23,6 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCase {
-
-    private static final Comparator<WeeklySchedule> SCHEDULE_ORDER = Comparator
-            .comparing(WeeklySchedule::getDayOfWeek)
-            .thenComparing(WeeklySchedule::getStartTime)
-            .thenComparing(WeeklySchedule::getId);
 
     private final CatalogSyncStateRepository catalogSyncStateRepository;
     private final ProfessionalRepository professionalRepository;
@@ -58,7 +52,7 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
     private static ProfessionalWithSchedules withSchedules(Professional professional, List<WeeklySchedule> schedules) {
         return ProfessionalWithSchedules.builder()
                 .professional(professional)
-                .weeklySchedules(schedules.stream().sorted(SCHEDULE_ORDER).collect(Collectors.toList()))
+                .weeklySchedules(schedules.stream().sorted(WeeklySchedule.BY_DAY_START_AND_ID).collect(Collectors.toList()))
                 .build();
     }
 
