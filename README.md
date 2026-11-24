@@ -67,7 +67,7 @@ En este repositorio se encuentra el servicio encargado de almacenar el catalogo 
 Para ejecutar el servicio sigue los siguientes pasos:
 
 ### Requisitos:
-- Correr el servicio: **Docker con Compose V2**. Si se corre en conjunto con el servicio de catalogo es necesario **Compose 2.20**.
+- Correr el servicio: **Docker con Compose V2**. Si se corre en conjunto con el servicio de turnos es necesario **Compose 2.20**.
 - Desarrollar y correr tests: **JDK 25**, sumado a los requisitos para correr el servicio.
 
 ### Instalación:
@@ -85,33 +85,26 @@ git clone https://github.com/Programacion2-IgnacioMilutin-2026/catalogo_service.
 
 2- Copiar [.env.example](.env.example) como **.env** y completar las variables de entorno obligatorias. Completar las opcionales si es necesario. Las opcionales no completadas se toman con los valores por defecto que figuran en el .env.example.
 
-> **Solo en LINUX:** Si el **UID** y **GID** del usuario no es 1000, comprobar estos en el sistema con los siguientes comandos y reemplazarlos en el archivo .env si son distintos al 1000 por defecto:
-```
-id -u
-id -g
-```
-Esto para que el contenedor tenga acceso a las claves del JWT.
-
 ### Ejecución:
 
 Hay dos formas de ejecución
 
-- Para ejecutar solo el servicio de turnos individualmente:
+- Para ejecutar solo el servicio de catalogo individualmente:
 
 ```
 docker compose up -d --build
 ```
-En la primera ejecucion, se construye la imagen y se crean los secrets del JWT si no estan generados.
-- Para ejecutar junto con el servicio de catalogo:
+
+- Para ejecutar junto con el servicio de turnos:
 
 ```
 docker compose -f compose.full-system.yaml up -d --build
 ```
-Es el mismo comando en ambos servicios. Deben estar ambos servicios clonados en el mismo directorio raiz. El directorio clonado de los servicios debe tener el nombre originario del repositorio: **turnos_service** y **catalog_service**.
+Es el mismo comando en ambos servicios. Deben estar ambos servicios clonados en el mismo directorio raiz. El directorio clonado de los servicios debe tener el nombre originario del repositorio: **turnos_service** y **catalogo_service**.
 
 ### Detener Ejecución:
 
-Para apagar si esta ejecutando solo el serivicio de turnos ejecute el siguiente comando:
+Para apagar si esta ejecutando solo el servicio de catalogo ejecute el siguiente comando:
 ```
 docker compose down
 ```
@@ -154,10 +147,10 @@ Tambien se tiene una carpeta [Decisiones](./docs/decisiones), donde se documenta
 ## Paquete de Catalogo
 
 A continuacion se tiene una breve explicación acerca del paquete [Catalogo](./src/main/java/catalogo). Se aplica la arquitectura hexagonal con vertical slicing. Aqui tenemos dentro de cada slice un paquete Domain, un paquete Application y un paquete Infrastructure.
-- **Catalog:**
-- **Catedra:**
-- **Config:**
-- **Syncronization:**
+- **Catalog:** La copia local del catálogo de la cátedra, con categorías, profesionales y sus horarios semanales, junto con el estado de la sincronización, es decir, qué versión se tiene y cuándo se sincronizó. Aplica cada versión nueva en una sola transacción y atiende las consultas.
+- **Catedra:** Maneja la comunicación con la cátedra, por su API REST, por Redis y por Kafka. Mantiene la sesión técnica y pide el catálogo completo. En Redis lee la versión actual y los cambios de cada versión y por Kafka recibe los avisos de versión nueva. Es el único paquete que conoce la cátedra, Redis y Kafka.
+- **Config:** Configuración del servicio, sin lógica de negocio. Contiene la seguridad (la validación del JWT que emite turnos, las rutas públicas y CORS), el formato común de los errores de la API, el reloj y las tareas programadas.
+- **Syncronization:** El proceso que mantiene la copia local al día con la cátedra. Hace la sincronización completa cuando no hay copia local o cuando no puede ponerse al día versión por versión. Hace la incremental cuando llega un aviso de versión nueva, y una verificación periódica por si se perdió alguno. Asegura que haya una sola sincronización a la vez y que un aviso repetido no se aplique dos veces.
 
 ---
 

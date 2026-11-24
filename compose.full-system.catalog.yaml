@@ -1,0 +1,5 @@
+services:
+  catalog-service:
+    depends_on:
+      turnos-public-key:
+        condition: service_completed_successfully
