@@ -59,7 +59,7 @@ Spring tiene dos lugares que responden un `401`: uno cuando falta el token y otr
 - Llega como la ubicación de un archivo PEM, en `CATALOGO_JWT_PUBLIC_KEY_LOCATION` (D4). Catálogo lee el mismo `jwt-public.pem` que genera turnos, sin copiarlo, así la clave siempre corresponde. En seguridad no hay diferencia con poner la clave misma en el `.env`: es pública, lo que importa es que nadie la cambie, y en los dos casos la protegen los permisos del usuario en la máquina.
 - Se lee al arrancar. Tiene que ser una clave pública RSA de 2048 bits o más.
 - **Si falta o no sirve, el servicio arranca igual**, con un warning que dice qué pasó y la ubicación, y toda ruta protegida responde `401`. La sincronización, C04 y C05 no usan la clave y siguen funcionando: es el mismo criterio que ya usa catálogo con las credenciales de la cátedra. El warning nunca muestra el contenido del archivo, por si la variable apunta por error a la clave privada.
-- En Docker se monta solo `jwt-public.pem`, en solo lectura, nunca la carpeta `secrets/` de turnos, que también tiene la privada (contrato común §1.3: la privada no se entrega al catálogo).
+- En Docker, turnos copia solo `jwt-public.pem` a un volumen con nombre fijo (`turnos-jwt-public-key`), y catálogo lo monta de solo lectura: nunca ve la carpeta `secrets/` de turnos, que también tiene la privada (contrato común §1.3: la privada no se entrega al catálogo). Sin turnos, el volumen está vacío y catálogo arranca con el warning de este punto. Por qué un volumen y no montar el archivo de turnos: sección "Docker" del `CLAUDE.md` (etapa de Docker, 2026-11-23).
 
 ### 6. CORS
 

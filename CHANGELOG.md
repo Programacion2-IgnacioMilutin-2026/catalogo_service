@@ -139,3 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Endpoint para buscar un profesional con sus horarios. 
 - Logs para identificar al usario que busca los horarios del profesional. 
 - Tests de integracion del caso de uso C06-HorariosProfesional.
+
+## 2026-11-23
+### Added
+- Archivo de docker para correr el servicio. 
