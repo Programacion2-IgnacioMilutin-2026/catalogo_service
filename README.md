@@ -67,7 +67,7 @@ En este repositorio se encuentra el servicio encargado de almacenar el catalogo 
 Para ejecutar el servicio sigue los siguientes pasos:
 
 ### Requisitos:
-- Correr el servicio: **Docker con Compose V2**. Si se corre en conjunto con el servicio de turnos es necesario **Compose 2.20**.
+- Correr el servicio: **Docker con Compose V2**. Si se corre en conjunto con el servicio de turnos es necesario **Compose 2.23.3**.
 - Desarrollar y correr tests: **JDK 25**, sumado a los requisitos para correr el servicio.
 
 ### Instalación:
