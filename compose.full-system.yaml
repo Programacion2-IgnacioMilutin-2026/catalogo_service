@@ -1,0 +1,7 @@
+
+name: full-system
+include:
+  - ../turnos_service/compose.yaml
+  - path:
+      - ../catalogo_service/compose.yaml
+      - ../catalogo_service/compose.full-system.catalog.yaml

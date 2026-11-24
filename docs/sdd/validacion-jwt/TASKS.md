@@ -1,0 +1,231 @@
+# TASKS: Validación del JWT en los endpoints protegidos
+
+SPEC: `docs/sdd/validacion-jwt/SPEC.md` (aprobada el 2026-11-22). PLAN: `docs/sdd/validacion-jwt/PLAN.md` (aprobado el 2026-11-22, con el ajuste del orden que trajo este documento: el test de las otras rutas se mueve en la etapa 2). Tareas aprobadas por el usuario el 2026-11-22. La implementación sigue su autorización, tanda por tanda (tanda 1, TASK-01: autorizada el 2026-11-22, al aprobar las tareas; tanda 2, TASK-02 y TASK-03: autorizada el 2026-11-22, después de los commits `bfd2419` y `639f268`; tanda 3, TASK-04: autorizada el 2026-11-22, después del commit `61a678a`; tanda 4, TASK-05 y TASK-06: autorizada el 2026-11-22, después del commit `60cd45e`; tanda 5, TASK-07 y TASK-08: autorizada el 2026-11-22, después del commit `0c88e5f`; tanda 6, TASK-09: autorizada el 2026-11-22, sin commit de la tanda 5, que el usuario commitea junto con el cierre).
+
+Las tareas siguen el "Orden de implementación" del PLAN y cada una deja la suite en verde. Toda tarea con tests incluye, después de que pasan, una prueba en negativo: romper el código a propósito, ver fallar el test, restaurar el archivo y comprobar el hash. Los tests se cuentan con los reportes XML (`target/surefire-reports/TEST-*.xml`) después de `clean`; al cerrar C05 eran 630 tests en 76 clases.
+
+Nada depende de la velocidad de la máquina: los bordes del vencimiento se prueban solo en el unitario, con un reloj fijo; las integraciones usan tokens con una hora de margen, y ningún test detiene ni pausa la base. Ninguna tarea se conecta a la cátedra real, a su Kafka ni a su Redis.
+
+Los comandos de git los ejecuta el usuario. Al terminar cada tanda se le da, por cada tarea, su explicación de archivos, su mensaje de commit y su lista de archivos. Si dos tareas de una tanda tocan el mismo archivo, se frena entre una y otra para que commitee. `TASKS.md` va con la última tarea de cada tanda.
+
+Tandas propuestas (cada una espera la orden del usuario): 1 = TASK-01; 2 = TASK-02 y TASK-03; 3 = TASK-04; 4 = TASK-05 y TASK-06; 5 = TASK-07 y TASK-08; 6 = TASK-09. TASK-01 y TASK-04 tocan `application.yaml` y `.env.example`, y TASK-02 y TASK-04 tocan `SecurityConfig`: están en tandas distintas, así que cada una se commitea antes de la siguiente.
+
+## Etapa 1 · La clave y el decodificador
+
+- [x] **TASK-01 · La clave pública, el decodificador y los tokens de prueba**
+  - Alcance:
+    - `config/JwtProperties` (`record`, `catalogo.jwt.public-key-location`; vacía o presente sin valor cuenta como no configurada).
+    - `config/JwtDecoderConfig`: lee la clave al arrancar con `RsaKeyConverters.x509()` y la revisa (RSA, 2048 bits o más). Con clave, un decodificador `RS256` con el vencimiento sin tolerancia y el `Clock` del servicio, `exp` obligatorio y `sub` solo dígitos del 0 al 9 dentro del rango de un `Long`. Sin clave utilizable, un warning al arrancar (qué pasó y la ubicación, sin el contenido del archivo ni el mensaje de la excepción) y un decodificador que rechaza todo token (P3).
+    - `application.yaml`: `catalogo.jwt.public-key-location: ${CATALOGO_JWT_PUBLIC_KEY_LOCATION:}`. `.env.example`: la variable vacía, con el aviso de que hay que poner la clave pública de turnos, sin la ruta.
+    - `TestTokens` ampliado: variantes sin `exp`, sin `sub` o con uno dado, firmado con otro par, `HS256`, sin firma y con un `auth` dado; tokens respecto de un instante fijo; la clave pública en un PEM temporal; PEM de prueba de otro par, de 1024 bits y de una clave privada. `valid`, `expired` y `altered` siguen con su nombre (P6.1).
+    - `config/JwtDecoderConfigTest` (nuevo, unitario, sin Spring y con un reloj fijo).
+    - No se toca `SecurityConfig`: todavía nadie usa el decodificador.
+  - Depende de: ninguna
+  - Resuelve: CA-03, CA-04, CA-05 y CA-10 en el decodificador; CA-12 en sus variantes; CA-11 en el warning
+  - Validación:
+    - Línea base antes de tocar nada: `./mvnw -q clean test`, conteo en los XML.
+    - `./mvnw test -Dtest=JwtDecoderConfigTest`:
+      - CA-03: otro par, `HS256`, sin firma y contenido cambiado, rechazados;
+      - CA-04: con el reloj fijo, el que venció 1 s antes, rechazado; el que vence 1 s después, aceptado; sin `exp`, rechazado;
+      - CA-05: sin `sub`, `abc`, `-1`, `4 2`, `٤٢` y `9223372036854775808`, rechazados; `42`, aceptado;
+      - CA-10: dos decodificadores armados desde el mismo archivo aceptan el token; uno con el PEM de otro par lo rechaza;
+      - CA-12: sin propiedad, vacía, archivo inexistente, archivo que no es una clave, clave de 1024 bits y clave privada: el decodificador rechaza un token válido y el warning dice qué pasó, sin el contenido del PEM.
+    - La suite completa sigue en verde (el bean existe en todos los contextos; sin clave, solo deja el warning).
+    - Pruebas en negativo: la tolerancia por defecto de Spring (pasa el vencido hace 1 s); `exp` opcional (pasa el token sin `exp`); sin la validación del `sub`; el warning con el mensaje de la excepción en lugar del texto propio, si ese mensaje trae parte del contenido (si no lo trae, se anota).
+  - Resultado: 2026-11-22 (tanda 1, autorizada ese día).
+    - Creados `config/JwtProperties`, `config/JwtDecoderConfig` y `config/JwtDecoderConfigTest`. Modificados `application.yaml` (`catalogo.jwt.public-key-location`), `.env.example` (la variable vacía, con el aviso, sin la ruta) y `TestTokens`.
+    - **Ajuste al hacerla:** `TestTokens` suma también un PEM de una clave pública de curva elíptica y un archivo que no es una clave, para los casos "no es RSA" y "no es un PEM" de CA-12. El decodificador arma sus validadores con `JwtValidators.createDefaultWithValidators`, que conserva la revisión de `typ` de Spring; eso corrigió una afirmación del PLAN sobre la opción de Spring Boot (ver "Hechos comprobados" del PLAN), sin cambiar P3.
+    - Línea base, antes de tocar nada: `./mvnw -q clean test`, 630 tests en 76 clases, 0 fallos ni errores, 146 s.
+    - `./mvnw test -Dtest=JwtDecoderConfigTest`: 31 tests, 0 fallos ni errores.
+      - CA-03: otro par RSA, `HS256`, sin firma y el contenido cambiado, rechazados.
+      - CA-04, con el reloj fijo en 2026-11-22T12:00:00Z: el que venció 1 s antes, rechazado; el que vence 1 s después, aceptado. Sin `exp`, rechazado.
+      - CA-05: sin `sub`, y con `""`, `abc`, `-1`, `+42`, `4 2`, ` 42`, `٤٢`, `9223372036854775808` y `00000000000000000042` (20 dígitos), rechazados; `42`, `0` y `9223372036854775807`, aceptados.
+      - CA-10: dos decodificadores armados desde el mismo archivo aceptan el mismo token; uno con el PEM de otro par lo rechaza.
+      - CA-12 y CA-11: sin propiedad, vacía, en blanco, archivo inexistente, archivo que no es una clave, clave privada, clave de curva elíptica y RSA de 1024 bits: el decodificador rechaza un token válido. El log muestra un warning por caso, con la ubicación y lo que pasó ("is not configured", "could not be read", "is not an RSA public key in PEM format", "is shorter than 2048 bits"), sin `BEGIN` ni ninguna línea del archivo. Con la clave válida no hay warning.
+    - Prueba en negativo 1: la tolerancia por defecto de Spring (`new JwtTimestampValidator()`), y falló solo el del vencido hace 1 s.
+    - Prueba en negativo 2: sin `setAllowEmptyExpiryClaim(false)`, y falló solo el del token sin `exp`: Spring lo acepta por defecto.
+    - Prueba en negativo 3: sin el validador del `sub`, y fallaron los 10 casos del `sub` (los 9 inválidos y el que no lo trae).
+    - Prueba en negativo 4: el warning con el mensaje de la excepción, y fallaron 2 casos: el archivo que no es una clave y la clave privada. **El mensaje de Spring no trae el contenido del archivo**, pero sí la palabra `BEGIN` en su sugerencia ("check that the header begins with -----BEGIN PUBLIC KEY"), y eso lo detecta. En la clave de curva elíptica el mensaje ("Invalid RSA public key") no tiene ninguna de las dos cosas, así que ese caso no lo detecta.
+    - Restaurado `JwtDecoderConfig`: `sha256sum -c` coincide, y `JwtDecoderConfigTest` vuelve a 31 en verde.
+    - `./mvnw -q clean test`: 661 tests en 77 clases, 0 fallos ni errores, 149 s. El warning "is not configured" aparece 26 veces en la salida: uno por cada contexto que arranca la aplicación sin clave, más los del unitario. Es lo esperado hasta TASK-03.
+
+## Etapa 2 · La cadena
+
+- [x] **TASK-02 · La cadena valida el token, ignora las rutas públicas y escribe los rechazos**
+  - Alcance:
+    - `config/SecurityProblemHandler` (nuevo): punto de entrada y manejador de acceso denegado; `ProblemDetail` en `application/problem+json` con `title`, `status`, un `detail` fijo por estado e `instance`, sin `code`; el `401` con `WWW-Authenticate: Bearer`; nada al log (P4).
+    - `config/SecurityConfig`: el resource server con el decodificador de TASK-01; el lector del token que no busca nada en `PUBLIC_ENDPOINTS` y delega en `DefaultBearerTokenResolver` en las demás rutas (P2); `SecurityProblemHandler` en los dos lugares del `401` y en el del `403`; `authenticated()` para lo demás, sin roles; CSRF como viene.
+    - `TestSecurityConfiguration` (nuevo, en `src/test/java/catalogo/config/`): la seguridad real con la clave de test, para los `@WebMvcTest`. Si el `@ConfigurationPropertiesScan` no registra `JwtProperties` en un `@WebMvcTest`, la habilita de forma explícita (riesgo del PLAN).
+    - `ProfessionalCategoryControllerTest` y `ProfessionalControllerTest`: importan `TestSecurityConfiguration` en lugar de `SecurityConfig`.
+    - `config/ProtectedRoutesSecurityTest` (nuevo, `@WebMvcTest` contra las rutas reales).
+    - `anyOtherRouteWithoutAuthenticationIsRejectedWithoutData` sale de `ProfessionalCategoriesIntegrationTest` y pasa a `config/SecurityIntegrationTest` (nuevo), con los `GET` en `401` y los `POST` en `403`, los dos en `problem+json` sin datos (ajuste del orden del PLAN).
+    - No se toca CORS ni `TestcontainersConfiguration`.
+  - Depende de: TASK-01
+  - Resuelve: CA-01, CA-02, CA-06 (web), CA-07 (en los `@WebMvcTest`), CA-08, CA-09 y CA-14 (web y servidor real sin token)
+  - Validación:
+    - `./mvnw test -Dtest='ProtectedRoutesSecurityTest,ProfessionalCategoryControllerTest,ProfessionalControllerTest,SecurityIntegrationTest,ProfessionalCategoriesIntegrationTest'`:
+      - CA-01: sin `Authorization`, `401` `problem+json` sin datos en `/api/professionals/15` y en una ruta inexistente;
+      - CA-02: `Basic abc`, `Bearer`, `Bearer ` y `Bearer xxx`, `401`;
+      - CA-03 y CA-05 en la web: un token de otro par y uno con `sub` `abc`, `401`;
+      - CA-06: los cuerpos de esos `401` son idénticos, sin `code`, y llevan `WWW-Authenticate: Bearer` sin motivo;
+      - CA-07: las cinco variantes de C04 y C05, con el token válido de verdad, responden igual que sin encabezado;
+      - CA-08: tokens válidos sin `auth`, con `auth` vacío, `ROLE_USER` y `ROLE_ADMIN`, en las tres rutas: `404` `problem+json`;
+      - CA-09: `/api/professionals/abc` sin token, `401`; con token, `404`;
+      - CA-14: `POST` sin token, `403` `problem+json`; con uno inválido, `401`; con uno válido, `405`;
+      - el test movido, con el servidor real: los `GET` en `401` y los `POST` en `403`.
+    - `./mvnw clean test` (se movió un test): la suite completa en verde y el conteo en los XML.
+    - Pruebas en negativo: el resource server sin el lector propio (fallan las variantes de CA-07: un token inválido da `401` en una ruta pública); el manejador solo en el lugar general (falla CA-06: el `401` de un token inválido sale sin el cuerpo).
+  - Resultado: 2026-11-22 (tanda 2, autorizada ese día).
+    - Creados `config/SecurityProblemHandler`, y en los tests `config/TestSecurityConfiguration`, `config/ProtectedRoutesSecurityTest` y `config/SecurityIntegrationTest`. Modificados `config/SecurityConfig`, `ProfessionalCategoryControllerTest` y `ProfessionalControllerTest` (importan `TestSecurityConfiguration`), y `ProfessionalCategoriesIntegrationTest` (sin el test de las otras rutas ni sus imports).
+    - `SecurityProblemHandler` escribe el `ProblemDetail` con `JacksonJsonHttpMessageConverter`, el conversor de Spring MVC, que registra la forma de `ProblemDetail` (visto con `javap`): por eso sale sin `type`, igual que los demás errores.
+    - `TestSecurityConfiguration` habilita `JwtProperties` con `@EnableConfigurationProperties` y registra la clave de test con un `DynamicPropertyRegistrar`; con eso los `@WebMvcTest` arrancan sin depender del `@ConfigurationPropertiesScan` (el riesgo del PLAN queda resuelto así, sin comprobar si el escaneo alcanzaba).
+    - `./mvnw test -Dtest='ProtectedRoutesSecurityTest,ProfessionalCategoryControllerTest,ProfessionalControllerTest,SecurityIntegrationTest,ProfessionalCategoriesIntegrationTest'`: 34, 10, 37, 4 y 6 tests, 0 fallos ni errores.
+      - CA-01: sin `Authorization`, `/api/professionals/15` y `/api/no-such-route` responden `401` `problem+json`, `status` 401, sin `code`.
+      - CA-02, CA-03, CA-05 y CA-06: `Basic abc`, `Bearer`, `Bearer `, `Bearer xxx`, y tokens de otro par, `HS256`, sin firma, alterado, vencido, sin `exp` y con `sub` `abc`: los once responden `401` con `WWW-Authenticate: Bearer` y exactamente el mismo cuerpo que sin token (`{"title":"Unauthorized","status":401,"detail":"A valid bearer token is required","instance":"/api/professionals/15"}`, comparado en modo estricto: sin `type` ni `code`).
+      - CA-07: las cinco variantes de los tests de C04 y C05, ahora con el token válido de verdad, responden igual que sin encabezado.
+      - CA-08: tokens válidos sin `auth`, con `auth` vacío, `ROLE_USER` y `ROLE_ADMIN`, en `/api/professionals/15`, `/api/synchronization/status` y `/api/no-such-route`: los 12 casos `404` `problem+json`.
+      - CA-09: `/api/professionals/abc` sin token, `401`; con un token válido, `404`.
+      - CA-14 en la web: `POST /api/professionals` y `POST /api/professional-categories` sin token, `403` con `{"title":"Forbidden","status":403,"detail":"Access is denied","instance":…}` en modo estricto y sin `WWW-Authenticate`; con `Bearer xxx`, `401`; con un token válido, `405`.
+      - El test movido, con el servidor real (`anyOtherRouteWithoutATokenIsRejectedWithoutData`): los dos `GET` en `401` y los dos `POST` en `403`, en `problem+json` y sin los datos de la copia.
+    - Prueba en negativo 1: el resource server sin el lector propio, y fallaron 3 variantes en cada test de controller (vencido, alterado y un texto que no es un JWT: `401` en una ruta pública). El token válido y `Basic` siguieron pasando, como se esperaba.
+    - Prueba en negativo 2: `SecurityProblemHandler` solo en el lugar general, y fallaron las 10 variantes con `Bearer` de CA-06: Spring respondió `WWW-Authenticate: Bearer error="invalid_token", …`, con el motivo. `Basic abc` siguió pasando, porque llega anónimo al lugar general.
+    - Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+    - `./mvnw -q clean test` (se movió un test): 695 tests en 79 clases, 0 fallos ni errores, 163 s (661, más 34 y 4 nuevos, menos los 4 casos movidos desde C04).
+
+- [x] **TASK-03 · La clave de test en todos los contextos**
+  - Alcance:
+    - `TestcontainersConfiguration` registra `catalogo.jwt.public-key-location` con la clave de `TestTokens` (P6.1).
+    - No se toca código de producción.
+  - Depende de: TASK-02
+  - Resuelve: CA-07 en la aplicación completa (el token alterado de `ProfessionalsIntegrationTest` frente a una clave real)
+  - Validación:
+    - `./mvnw clean test`: la suite completa en verde, porque cambia la configuración de 36 clases, y el conteo en los XML.
+    - En el log de la suite, el warning de la clave aparece solo en los contextos que no importan `TestcontainersConfiguration` (por ejemplo, el de la base detenida de C04).
+    - Prueba en negativo: sin registrar la propiedad, el warning aparece en todos los contextos que importan `TestcontainersConfiguration`.
+  - Resultado: 2026-11-22 (tanda 2).
+    - Modificado `TestcontainersConfiguration`: un `DynamicPropertyRegistrar` con la clave de `TestTokens`.
+    - `./mvnw -q clean test`: 695 tests en 79 clases, 0 fallos ni errores, 163 s. Pasa también el token alterado de `ProfessionalsIntegrationTest`, ahora frente a una clave real (CA-07).
+    - El warning "is not configured" aparece 4 veces: en el contexto de `ProfessionalCategoriesDatabaseDownIntegrationTest`, el único `@SpringBootTest` que no importa `TestcontainersConfiguration` (tiene su propia base), y en los 3 casos sin propiedad de `JwtDecoderConfigTest`.
+    - Prueba en negativo: la corrida de la suite de TASK-02, con el mismo código salvo este cambio, tenía 27 warnings: uno por cada uno de los 24 contextos que arrancan la aplicación y los 3 del unitario. No se repitió rompiendo el archivo, porque esa corrida ya muestra el estado sin la propiedad.
+
+## Etapa 3 · CORS
+
+- [x] **TASK-04 · Los navegadores permitidos**
+  - Alcance:
+    - `config/CorsProperties` (`record`, `catalogo.cors.allowed-origins`, lista vacía por defecto).
+    - `config/SecurityConfig`: la configuración CORS, registrada siempre: los orígenes de `CorsProperties`, `GET`, `Authorization`, sin cookies ni encabezados expuestos (P5).
+    - `application.yaml`: `catalogo.cors.allowed-origins: ${CATALOGO_CORS_ALLOWED_ORIGINS:}`. `.env.example`: la variable comentada, con el aviso de no usar `*`.
+    - `TestSecurityConfiguration`, si hace falta habilitar `CorsProperties`.
+    - `config/CorsSecurityTest` (nuevo, `@WebMvcTest`, sin orígenes y con uno de prueba).
+  - Depende de: TASK-02
+  - Resuelve: CA-13
+  - Validación:
+    - `./mvnw test -Dtest=CorsSecurityTest`:
+      - sin orígenes: la consulta previa y un `GET` con `Origin` a C04, a C05 y a una ruta protegida, `403` sin `Access-Control-Allow-Origin`;
+      - con `http://localhost:3000`: la consulta previa sin token a una ruta protegida, aceptada con `Access-Control-Allow-Origin` igual al origen y `Authorization` permitido; el `GET` sin token, `401` con ese encabezado; el `GET` a C05, como siempre, con el encabezado; la consulta previa que pide `POST`, y la de otro origen, rechazadas;
+      - sin `Origin`, las mismas respuestas en las dos configuraciones.
+    - Los tests web de TASK-02 siguen en verde.
+    - Prueba en negativo: la configuración CORS sin registrar con la lista vacía (la consulta previa deja de dar el `403` de CORS).
+  - Resultado: 2026-11-22 (tanda 3, autorizada ese día).
+    - Creados `config/CorsProperties` (`record` con `@DefaultValue`: sin la propiedad, lista vacía) y `config/CorsSecurityTest`. Modificados `config/SecurityConfig` (la configuración CORS, registrada siempre), `application.yaml`, `.env.example` (comentada, con el aviso de no usar `*`) y `TestSecurityConfiguration` (habilita `CorsProperties`).
+    - `./mvnw test -Dtest='CorsSecurityTest*,ProtectedRoutesSecurityTest,ProfessionalCategoryControllerTest,ProfessionalControllerTest'`: los 13 casos de `CorsSecurityTest`, sin fallos, y los de TASK-02 siguen en verde (34, 10 y 37).
+      - Sin orígenes: la consulta previa con `Origin` a C04, C05 y `/api/professionals/15`, `403` sin `Access-Control-Allow-Origin`; un `GET` con `Origin` a las mismas tres, `403` sin el encabezado y sin llamar a los services.
+      - Con `http://localhost:3000`: la consulta previa sin token a `/api/professionals/15`, `200` con `Access-Control-Allow-Origin` igual al origen, `Authorization` en los encabezados permitidos y sin `Access-Control-Allow-Credentials`; el `GET` sin token, `401` con el encabezado; el `GET` a C04, `200` con el encabezado; la consulta previa que pide `POST` y la de `http://other.example`, `403`.
+      - Sin `Origin`, en los dos grupos: C04 responde `200` y `/api/professionals/15`, `401`, sin encabezados CORS.
+      - No se revisa el cuerpo del `403` de CORS: es el rechazo estándar de Spring, como dice RF-11.
+    - **Hallazgo al contar:** el reporte XML de `CorsSecurityTest` dice `tests="12"` con 13 casos (`testcase`) adentro, todos sin `failure` ni `error`. Surefire cuenta mal las clases `@Nested` (turnos ya lo había visto en su resumen `.txt`). Desde aquí, la suite se cuenta por los casos.
+    - Prueba en negativo: CORS desactivado (`cors.disable()`), y fallaron 11 de 13. Pasaron solo los dos de "sin `Origin`". Sin configuración, la consulta previa terminó en `401` (llega sin token), y un `GET` con `Origin` a C04 o C05 respondió `200`: el rechazo dependía de otra regla. Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 708 casos en 80 clases, 0 fallos ni errores, 150 s (695 más los 13 de CORS; el atributo `tests` suma 707 por lo de `@Nested`).
+
+## Etapa 4 · La aplicación completa
+
+- [x] **TASK-05 · La seguridad con el servidor real**
+  - Alcance:
+    - `config/SecurityIntegrationTest` se amplía: los `401` con el servidor real (incluido el reenvío interno a `/error`, que `@WebMvcTest` no hace); C04 y C05 con el token válido de verdad y las demás variantes; un `POST` con un token inválido y con uno válido; y la salida capturada.
+    - No se toca código de producción.
+  - Depende de: TASK-03
+  - Resuelve: CA-06, CA-07, CA-11 y CA-14 con el servidor real
+  - Validación:
+    - `./mvnw test -Dtest=SecurityIntegrationTest`:
+      - CA-06: los `401` (sin token, `Bearer xxx`, vencido y alterado) tienen cuerpos idénticos y `WWW-Authenticate: Bearer`;
+      - CA-07: C04 y C05 con la copia inicializada responden igual con cada variante que sin encabezado;
+      - CA-14: `POST` con un token inválido, `401`; con uno válido, `405`;
+      - CA-11: ni la salida ni los cuerpos contienen los tokens usados.
+    - Prueba en negativo: el manejador solo en el lugar general (falla el cuerpo del `401` de un token inválido también con el servidor real).
+  - Resultado: 2026-11-22 (tanda 4, autorizada ese día).
+    - Modificado `config/SecurityIntegrationTest`: suma la salida capturada (`OutputCaptureExtension`) y 19 casos.
+    - `./mvnw test -Dtest=SecurityIntegrationTest`: 23 casos (los 4 de TASK-02 y 19 nuevos), sin fallos ni errores, con Tomcat en un puerto aleatorio.
+      - CA-06: sin token, y con `xxx`, vencido, alterado y de otro par, `401` con `WWW-Authenticate: Bearer` y el mismo cuerpo, comparado en modo estricto. Con el servidor real tampoco hay reenvío a `/error`: el manejador escribe la respuesta él mismo.
+      - CA-07: C04 y C05 con la copia inicializada (una categoría y un profesional), con un token válido de verdad, vencido, alterado, `Bearer xxx` y `Basic abc`: los 10 casos responden `200` con el mismo cuerpo que sin encabezado.
+      - CA-14: `POST` a las dos rutas con `Bearer xxx`, `401` `problem+json`; con un token válido, `405` `problem+json`.
+      - CA-11: en los casos con un token con forma de JWT, la salida no lo contiene. Los textos cortos (`xxx`, `abc`) no se buscan, porque podrían coincidir con cualquier otra línea.
+    - Prueba en negativo: `SecurityProblemHandler` solo en el lugar general, y fallaron 6: los 4 tokens rechazados (Spring respondió `WWW-Authenticate: Bearer error="invalid_token", …`) y los 2 `POST` con `Bearer xxx` (sin `Content-Type`: Spring no escribe cuerpo). Restaurado `SecurityConfig`: `sha256sum -c` coincide.
+
+- [x] **TASK-06 · El servicio sin clave**
+  - Alcance:
+    - `config/SecurityWithoutKeyIntegrationTest` (nuevo, un solo método, con la propiedad vacía).
+    - No se toca código de producción.
+  - Depende de: TASK-03
+  - Resuelve: CA-12 de punta a punta
+  - Validación:
+    - `./mvnw test -Dtest=SecurityWithoutKeyIntegrationTest`: el servicio arranca; el log del arranque tiene el warning de la clave, sin contenido; un token firmado con el par de test recibe `401` en `/api/professionals/15`; C04 responde como siempre.
+    - Prueba en negativo: con la propiedad apuntando a la clave de test, el mismo token pasa y el warning no aparece.
+  - Resultado: 2026-11-22 (tanda 4).
+    - Creado `config/SecurityWithoutKeyIntegrationTest`. **Ajuste al hacerla:** no importa `TestcontainersConfiguration`, porque desde TASK-03 esa configuración registra la clave de test y sus propiedades dinámicas le ganan a las del test. Usa su propia base de PostgreSQL 18, como `ProfessionalCategoriesDatabaseDownIntegrationTest`, y pone `catalogo.jwt.public-key-location=` explícita, así tampoco la llena una variable de entorno de la máquina.
+    - `./mvnw test -Dtest=SecurityWithoutKeyIntegrationTest`: 1 caso, sin fallos. El servicio arrancó; el log del arranque tiene `WARN … JwtDecoderConfig : The JWT public key is not configured (catalogo.jwt.public-key-location): every request to a protected route will be rejected`, sin `BEGIN`; un token firmado con el par de test recibió `401` `problem+json` en `/api/professionals/15`; C04 respondió `200` con su categoría.
+    - Prueba en negativo: con la propiedad apuntando a la clave de test (una línea temporal en `@DynamicPropertySource`), el mismo token pasó la seguridad (`404`) y el log no tuvo ningún warning de la clave. Restaurado el test: `sha256sum -c` coincide.
+    - `./mvnw -q clean test`: 728 casos en 81 clases, 0 fallos ni errores, 156 s (708, más los 19 de TASK-05 y el de esta tarea).
+
+## Etapa 5 · Regresión y prueba con turnos
+
+- [x] **TASK-07 · La suite completa**
+  - Alcance: sin cambios de código; regresión y cobertura.
+  - Depende de: TASK-05, TASK-06
+  - Resuelve: la regresión del PLAN
+  - Validación:
+    - `./mvnw clean verify`: conteo en los XML y cobertura de JaCoCo de las clases nuevas.
+    - Los tres E2E siguen compilando y se saltean sin credenciales: `./mvnw test -Pe2e -Dtests.env-file=<archivo inexistente>`.
+    - Los cinco chequeos de la skill (`SKILL.md` §12), con la salida esperada.
+  - Resultado: 2026-11-22 (tanda 5, autorizada ese día).
+    - `./mvnw -q clean verify`: 728 casos en 81 clases, 0 fallos ni errores, 156 s. JaCoCo (`target/site/jacoco/jacoco.xml`): líneas 1694/1739 (97,4 %) y ramas 587/623 (94,2 %); al cerrar C05, 97,3 % y 94,0 %. Las clases nuevas de `config`, completas: `JwtDecoderConfig` 45/45 líneas y 20/20 ramas, `SecurityConfig` 28/28 y 2/2, `SecurityProblemHandler` 12/12, `JwtProperties` y `CorsProperties` 1/1.
+    - `./mvnw test -Pe2e -Dtests.env-file=/nonexistent/catalogo-e2e.env` (después de borrar `target/surefire-reports`): los tres E2E compilan y se saltean, un caso salteado cada uno, sin fallos ni llamadas a la cátedra.
+    - Chequeos de la skill, desde la raíz: el 1 (dominio), el 2 (aplicación), el 3 (entidades JPA) y el 4 (`@Autowired`) no imprimen nada. El 5 (imports entre slices) imprime 27 líneas, todas de `synchronization` hacia `catalog` (15) y `catedra` (12): la fachada y el gateway ya autorizados (C01 y C02, decisión 004). `git diff --stat 29da17f HEAD -- src/main/java src/main/resources` muestra que desde el cierre de C05 solo cambiaron `config` y `application.yaml`, así que no hay imports nuevos. `config` no importa ningún slice, y ningún slice importa `config`.
+
+- [x] **TASK-08 · La prueba con un token real de turnos (la corre el usuario)**
+  - Alcance: prueba manual con turnos y catálogo en local, sin la cátedra (P6.4). Se le pasa al usuario la lista de pedidos y los comandos, con las variables de la cátedra vacías en los dos servicios y sin Kafka ni tareas programadas; los nombres exactos de las variables de turnos se confirman en su `application.yaml` antes de pasarlos. Deja un usuario de prueba en la base de desarrollo de turnos. Al terminar, todo queda como estaba (aplicaciones detenidas, compose en su estado previo).
+  - Depende de: TASK-07
+  - Resuelve: la restricción de la SPEC (los tokens de T02 se validan sin cambios en turnos)
+  - Validación, con `curl` y sin mostrar el token:
+    - en turnos, registrar el usuario de prueba e iniciar sesión;
+    - con ese token, `GET /api/professionals/15` de catálogo: `404` `problem+json` (pasó la seguridad);
+    - sin token y con el token alterado: `401`;
+    - `GET /api/professionals` con y sin token: la misma respuesta;
+    - el log de catálogo, sin el token y sin el warning de la clave.
+  - Resultado: 2026-11-22 (tanda 5). La corrió el usuario en su terminal, con un script de un solo uso que guardaba el token solo en memoria y dejaba un resultado sin él; se revisó que el resultado no tuviera nada con forma de JWT antes de leerlo.
+    - Turnos (`turnos_service`, `main` `8151679`, con su base de desarrollo) y catálogo (con la base de desarrollo, que tiene el snapshot 422), los dos con las variables de la cátedra vacías y sin Kafka. Turnos también sin el barrido ni la reconciliación. Catálogo con `CATALOGO_JWT_PUBLIC_KEY_LOCATION=file:../turnos_service/secrets/jwt-public.pem` y el log en `target/manual-jwt.log`.
+    - Turnos: `POST /api/register` del usuario de prueba `catalogo.jwt.1795363639`, `201`; `POST /api/authenticate`, `200` con el token. El usuario queda en la base de desarrollo de turnos (`sub` 6).
+    - **El token real de turnos:** encabezado `{"kid": "…", "alg": "RS256"}`, con un `kid` (el identificador de la clave) y sin `typ`; claims `auth`, `exp`, `iat` y `sub`, con `sub` `6`, `auth` `ROLE_USER` y 86400 s de vigencia. Catálogo no lee el `kid`: valida con su única clave.
+    - Catálogo, `GET /api/professionals/15`:
+      - con el token de turnos, `404` `application/problem+json` (`"detail":"No static resource api/professionals/15."`): pasó la seguridad. **Cumple la restricción de la SPEC: un token de T02 se valida sin cambios en turnos.**
+      - sin token, `401` con `WWW-Authenticate: Bearer` y `{"detail":"A valid bearer token is required","instance":"/api/professionals/15","status":401,"title":"Unauthorized"}`;
+      - con el token alterado (un carácter de la firma), el mismo `401` y el mismo cuerpo.
+    - Rutas públicas, con y sin el token: `/api/professional-categories` (`200`, 932 caracteres), `/api/professionals` (`200`, 3742) y `/api/professionals?size=3` (`200`, 1191), idénticas en los tres casos.
+    - El log de catálogo: el token aparece 0 veces y el warning de la clave, 0. Solo hay un `WARN` (`Technical login disabled: missing configuration properties`) y un `ERROR` (`Technical login configuration error, no retries until restart`), los esperables por arrancar sin la cátedra (como en TASK-11 de C04).
+    - Al terminar: los dos servicios detenidos y las dos bases bajadas por el usuario (`docker compose down`, sin `-v`); `docker ps` sin contenedores, como antes de empezar. Se borraron el script, su resultado y `target/manual-jwt.log`.
+
+## Etapa 6 · Cierre
+
+- [x] **TASK-09 · Documentación de cierre**
+  - Alcance:
+    - `docs/decisiones/007-seguridad-del-servicio.md` (nuevo): las decisiones y limitaciones de RF-13, con por qué C06 está protegido.
+    - `docs/decisiones/005-manejador-global-de-errores.md`: la línea de "Qué no hace" sobre los rechazos de la seguridad (P7).
+    - `CLAUDE.md`: la sección "Seguridad" reescrita, las dos variables en Requisitos y en la tabla de propiedades, lo nuevo de los tests (`TestTokens`, `TestSecurityConfiguration`, las clases de seguridad, la clave en `TestcontainersConfiguration`) y la `007` en "Documentación del servicio".
+    - `TASKS.md` con los resultados.
+  - Depende de: TASK-08
+  - Resuelve: CA-15
+  - Validación: revisar el texto `007` contra la lista de RF-13 y contra lo observado en CA-01 a CA-14; ninguna afirmación sin evidencia en este documento.
+  - Resultado: 2026-11-22 (tanda 6, autorizada ese día; el usuario commitea las tandas 5 y 6 juntas).
+    - Creado `docs/decisiones/007-seguridad-del-servicio.md`. Modificados `docs/decisiones/005-manejador-global-de-errores.md` (la línea de los rechazos de la seguridad en "Qué no hace"), `CLAUDE.md` y `docs/sdd/validacion-jwt/PLAN.md` (P5: el aviso de no usar `*` lo dan la `007` y el `CLAUDE.md`, porque el usuario lo sacó del `.env.example` al commitear TASK-04 y en el cierre eligió dejarlo así).
+    - `CLAUDE.md`: las dos variables en Requisitos y en la tabla de propiedades; una fila en Comandos para correr con la clave de turnos (la de TASK-08); el resource server en Datos del proyecto; `config` en la tabla de slices; "Validación del JWT: ninguna excepción nueva"; la sección "Seguridad" reescrita (el token, la clave, los rechazos en los tres lugares, CSRF, CORS, cómo hacer pública una ruta y qué hacer con un endpoint protegido nuevo); el reenvío a `/error`; lo comprobado con turnos real; los tests (`TestcontainersConfiguration` con la clave, `TestSecurityConfiguration`, las cinco clases de seguridad, `TestTokens` ampliado, contar por `testcase` con `@Nested`, la suite en 728 casos); y `validacion-jwt` y `007` en "Documentación del servicio".
+    - CA-15, revisión de la `007` contra RF-13: tiene las seis decisiones (qué es público y por qué se ignora el token; por qué C06 está protegido y por qué viaja el JWT del usuario; qué token se acepta; la clave; los rechazos; CORS y CSRF, con la diferencia con turnos) y las ocho limitaciones (sin revocación, cualquier portador en C06, la ventana del vencimiento, sin clave `401`, el cambio de clave manual, la trazabilidad a medias, sin roles hasta C07, sin TLS). Cada afirmación sobre el comportamiento tiene su evidencia en este documento: los `401` y su cuerpo (TASK-02 y TASK-05), el `403` de CSRF y de CORS (TASK-02 y TASK-04), la clave ausente (TASK-01 y TASK-06), el token real con `kid` y sin `typ` (TASK-08), y que un navegador de otro origen antes recibía `200` (la prueba en negativo de TASK-04). Lo único que no se ejecutó, que la propiedad de Spring Boot no deja arrancar sin clave, está marcado como visto en el código.
+    - Sin cambios de código desde TASK-07: no se volvió a correr la suite.

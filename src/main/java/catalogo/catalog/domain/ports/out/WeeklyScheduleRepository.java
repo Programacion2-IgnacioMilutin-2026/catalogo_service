@@ -11,4 +11,6 @@ public interface WeeklyScheduleRepository {
     void saveAll(List<WeeklySchedule> weeklySchedules);
 
     void deleteAllExcept(Collection<Long> ids);
+
+    List<WeeklySchedule> findAllByProfessionalIds(Collection<Long> professionalIds);
 }

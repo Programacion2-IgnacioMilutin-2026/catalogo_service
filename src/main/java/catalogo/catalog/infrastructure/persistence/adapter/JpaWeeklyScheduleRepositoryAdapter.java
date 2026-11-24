@@ -12,7 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// Guarda y quita horarios semanales con JPA.
+// Guarda, quita y lee horarios semanales con JPA.
 @Component
 @RequiredArgsConstructor
 public class JpaWeeklyScheduleRepositoryAdapter implements WeeklyScheduleRepository {
@@ -35,5 +35,15 @@ public class JpaWeeklyScheduleRepositoryAdapter implements WeeklyScheduleReposit
         } else {
             jpaWeeklyScheduleRepository.deleteByIdNotIn(ids);
         }
+    }
+
+    @Override
+    public List<WeeklySchedule> findAllByProfessionalIds(Collection<Long> professionalIds) {
+        if (professionalIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaWeeklyScheduleRepository.findAllByProfessionalIdIn(professionalIds).stream()
+                .map(weeklyScheduleMapper::toDomainModel)
+                .collect(Collectors.toList());
     }
 }

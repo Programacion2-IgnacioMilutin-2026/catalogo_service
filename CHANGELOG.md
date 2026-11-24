@@ -106,3 +106,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Contenedro de kafka para los test.
 - Tests de integracion de lo implementado en el caso de uso C02-SincronizacionIncrmental y Kafka.
 - Test E2E de sincronizacion incremental.
+- Documentacion de SDD y decisiones para caso de uso C04-ListarCategorias.
+- Colacion de la base de datos, puerto y funcion en el repositorio para devolver las categorias en formato alfabetico en español.
+- Caso de uso, service y excepciones para listar categorias en slice 'Catalog'.
+- DTO y DTOMapper par la respuesta web a la app en slice 'Catalog'.
+- Controller con endpoint para obtener las catgorias y sus tests, en slice 'Catalog'.
+- Test de integracion para obtener las categorias y generador y manejador de tokens para utilizarlo en los tests.
+- Archivo de seguridad en slice 'Config' para decidir que endpoints necesitan autenticacion.
+- Tests de integracion del caso de uso C04. 
+
+## 2026-11-21
+### Added
+- Documentacion de SDD del caso de uso C05-BuscarProfesionales.
+- Colacion, metodos en repositorios y modelos para buscar profesionales.
+- Filtro de profesionales por estado y categoria con paginacion, con su horario semanal. 
+- Caso de uso y service para fitlrar profesionales. 
+- Requests, responses, mapper y controller web para la busqueda de un profesional.
+- Tests de integracion del caso de uso C05-BuscarProfesionales.
+
+## 2026-11-22
+### Added 
+- Documentacion de SDD de la validacion del jwt.
+- Propiedades, decodificador y añadido de clave publica.
+- Validador del jwt de rutas que no son publicas.
+- Tests de la validacion del jwt. 
+- Configuracion del CORS.
+- Tests de integracion para la validacion del jwt.
+- Documentacion de SDD del caso de uso C06-HorariosProfesional.
+- Ordenar los horarios semanales de Lunes a Domingo cronologicamente.
+- Adapter y puerto para buscar un prfoesional por el id. 
+- Caso de uso para buscar un profesional con sus horarios.
+- Endpoint para buscar un profesional con sus horarios. 
+- Logs para identificar al usario que busca los horarios del profesional. 
+- Tests de integracion del caso de uso C06-HorariosProfesional.
+
+## 2026-11-23
+### Added
+- Archivo de docker para correr el servicio. 

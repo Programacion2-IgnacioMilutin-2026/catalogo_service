@@ -157,6 +157,57 @@ class CatalogRepositoryAdaptersTest {
     }
 
     @Test
+    void findingOneProfessionalByIdReturnsEveryFieldWithItsWholeCategory() {
+        ProfessionalCategory first = CatalogSamples.category(1);
+        ProfessionalCategory second = CatalogSamples.category(2);
+        Professional professional = CatalogSamples.professional(15, second);
+        categoryRepository.saveAll(List.of(first, second));
+        professionalRepository.saveAll(List.of(professional, CatalogSamples.professional(16, first)));
+
+        assertThat(professionalRepository.findById(15L)).get().usingRecursiveComparison().isEqualTo(professional);
+    }
+
+    @Test
+    void findingOneProfessionalThatIsNotInTheCopyReturnsEmpty() {
+        ProfessionalCategory category = CatalogSamples.category(1);
+        categoryRepository.saveAll(List.of(category));
+        professionalRepository.saveAll(List.of(CatalogSamples.professional(15, category)));
+
+        assertThat(professionalRepository.findById(999L)).isEmpty();
+        assertThat(professionalRepository.findById(0L)).isEmpty();
+        assertThat(professionalRepository.findById(-1L)).isEmpty();
+    }
+
+    @Test
+    void allCategoriesComeInSpanishAlphabeticalOrderWithTiesById() {
+        ProfessionalCategory pediatria = named(1, "pediatría", true);
+        ProfessionalCategory nandu = named(2, "Ñandú", true);
+        ProfessionalCategory opticaDisabled = named(3, "Óptica", false);
+        ProfessionalCategory nutricion = named(4, "Nutrición", true);
+        ProfessionalCategory odontologia = named(5, "odontología", true);
+        ProfessionalCategory opticaLowercase = named(6, "optica", true);
+        ProfessionalCategory psicologia = named(7, "Psicología", false);
+        ProfessionalCategory withEnye = named(8, "Nuñez", true);
+        ProfessionalCategory withN = named(9, "Nunez", true);
+        ProfessionalCategory opticaAgain = named(10, "Óptica", true);
+        categoryRepository.saveAll(List.of(pediatria, nandu, opticaDisabled, nutricion, odontologia,
+                opticaLowercase, psicologia, withEnye, withN, opticaAgain));
+
+        List<ProfessionalCategory> ordered = categoryRepository.findAllOrderedByName();
+
+        assertThat(ordered).extracting(ProfessionalCategory::getId)
+                .containsExactly(9L, 8L, 4L, 2L, 5L, 3L, 6L, 10L, 1L, 7L);
+        assertThat(ordered).usingRecursiveFieldByFieldElementComparator().containsExactly(
+                withN, withEnye, nutricion, nandu, odontologia,
+                opticaDisabled, opticaLowercase, opticaAgain, pediatria, psicologia);
+    }
+
+    @Test
+    void withoutCategoriesTheOrderedListIsEmpty() {
+        assertThat(categoryRepository.findAllOrderedByName()).isEmpty();
+    }
+
+    @Test
     void theSyncStateStartsEmptyAndKeepsWhatIsSaved() {
         assertThat(syncStateRepository.get()).usingRecursiveComparison().isEqualTo(new CatalogSyncState());
 
@@ -166,5 +217,12 @@ class CatalogRepositoryAdaptersTest {
         assertThat(syncStateRepository.get()).usingRecursiveComparison().isEqualTo(saved);
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM catalog_sync_state", Integer.class))
                 .isEqualTo(1);
+    }
+
+    private static ProfessionalCategory named(long id, String name, boolean enabled) {
+        ProfessionalCategory category = CatalogSamples.category(id);
+        category.setName(name);
+        category.setEnabled(enabled);
+        return category;
     }
 }

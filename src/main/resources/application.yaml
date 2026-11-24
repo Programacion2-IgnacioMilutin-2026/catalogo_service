@@ -57,3 +57,7 @@ catalogo:
         initial-delay: ${CATALOGO_VERIFICATION_PERSISTENCE_INITIAL_DELAY:1s}
         multiplier: ${CATALOGO_VERIFICATION_PERSISTENCE_MULTIPLIER:2}
         max-delay: ${CATALOGO_VERIFICATION_PERSISTENCE_MAX_DELAY:30s}
+  jwt:
+    public-key-location: ${CATALOGO_JWT_PUBLIC_KEY_LOCATION:}
+  cors:
+    allowed-origins: ${CATALOGO_CORS_ALLOWED_ORIGINS:}

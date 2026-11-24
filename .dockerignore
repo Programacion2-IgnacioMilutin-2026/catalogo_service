@@ -1,0 +1,8 @@
+target/
+.env
+secrets/
+*.pem
+.git/
+.idea/
+.vscode/
+docs/

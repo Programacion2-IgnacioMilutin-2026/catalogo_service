@@ -43,4 +43,11 @@ public class JpaProfessionalCategoryRepositoryAdapter implements ProfessionalCat
                 .map(professionalCategoryMapper::toDomainModel)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<ProfessionalCategory> findAllOrderedByName() {
+        return jpaProfessionalCategoryRepository.findAllByOrderByNameAscIdAsc().stream()
+                .map(professionalCategoryMapper::toDomainModel)
+                .collect(Collectors.toList());
+    }
 }

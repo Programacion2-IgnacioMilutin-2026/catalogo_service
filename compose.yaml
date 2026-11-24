@@ -15,6 +15,25 @@ services:
       timeout: 5s
       retries: 10
 
+  catalog-service:
+    build: .
+    image: catalog-service:local
+    env_file: .env
+    environment:
+      CATALOGO_DB_HOST: catalog-db
+      CATALOGO_DB_PORT: "5432"
+      CATALOGO_PORT: "8080"
+      CATALOGO_JWT_PUBLIC_KEY_LOCATION: file:/app/turnos-public-key/jwt-public.pem
+    ports:
+      - "${CATALOGO_PORT:-8081}:8080"
+    volumes:
+      - turnos-jwt-public-key:/app/turnos-public-key:ro
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+
 volumes:
   catalog-db-data:
     name: catalog_service_catalog-db-data
+  turnos-jwt-public-key:
+    name: turnos-jwt-public-key
